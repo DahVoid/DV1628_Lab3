@@ -1,6 +1,8 @@
 #include <iostream>
 #include "fs.h"
-
+#include <cstring>
+using namespace std; // Check if used in datorsalen
+//check includes in datorsalen
 FS::FS()
 {
     std::cout << "FS::FS()... Creating file system\n";
@@ -126,7 +128,7 @@ int
 FS::ls()
 {
     std::cout << "FS::ls()\n";
-    DIR *dir;
+ /*   DIR *dir;
     struct dirent *ent;
     if((dir = opendir("./")) != NULL) {
       // print all the dir stuff
@@ -138,7 +140,7 @@ FS::ls()
       // no open :((
       perror("");
       return EXIT_FAILURE;
-    }
+    }*/
 
     return 0;
 }
