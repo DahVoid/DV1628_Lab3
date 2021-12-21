@@ -18,8 +18,8 @@ int
 FS::format()
 {
 
-    fat[0] = ROOT_BLOCK;
-    fat[1] = FAT_BLOCK;
+    fat[0] = ROOT_BLOCK; // Since we're limited to 1 block, we can only use 64 dir_entries
+    fat[1] = FAT_BLOCK; 
 
     for (int i = 2; i > disk.get_no_blocks(); i++)
     {
@@ -46,22 +46,29 @@ FS::create(std::string filepath)
     int size_of_file;
     string string_to_eval;
     string string_to_eval_temp;
+    int start_block;
     cout << "Enter the information: ";
 
     while (getline(cin, string_to_eval_temp) && string_to_eval_temp.length() != 0)
     {
       string_to_eval += string_to_eval_temp + "\n";
     }
+    // convert string_to_eval to uint8_t*
+    uint8_t* block = (uint8_t*)string_to_eval.c_str();
+
 
     size_of_file = string_to_eval.length();
 
-    //TODO: handle to big files
-
     //insert data into directory entry
 
-    // check fat for space
+    // check amount of block
     int num_blocks = size_of_file / BLOCK_SIZE;
-    cout << "num blocks: " + num_blocks << "\n";
+    // Always 1 atleast
+    if(num_blocks == 0) {
+      num_blocks = 1;
+    }   
+
+    cout << "num blocks: " << num_blocks << "\n";
     int free_spaces = 0;
     cout << "Start for loop\n";
     for (int i = 0; i < BLOCK_SIZE/2; i++) {
@@ -75,13 +82,17 @@ FS::create(std::string filepath)
       if (free_spaces >= num_blocks) {
         cout << "Found space\n";
         // go back and fill
-        uint8_t start_block = i - num_blocks;
+        start_block = i - num_blocks;
+        cout << "Start block: " << start_block << "\n";
 
-        for(int j = start_block; j < start_block + num_blocks; i++) {
+        for(int j = start_block; j < start_block + num_blocks; j++) {
           fat[j] = FAT_BLOCK;
+          //TODO SPLIT BLOCK DATA IF TO LARGE
+          cout << "writing to disk\n";
+          disk.write(j, block);
         }
 
-        disk.write(num_blocks, &start_block);
+        
         cout << "finished to write \n";
         break;
       }
@@ -95,10 +106,12 @@ FS::create(std::string filepath)
     strcpy(temp_entry->file_name, filepath.c_str());
     
     temp_entry->size = size_of_file;
-    temp_entry->first_blk = 2; // check fat
+    temp_entry->first_blk = start_block;
     temp_entry->type = TYPE_FILE;
     temp_entry->access_rights = READ;
-    //disk.write()
+    // entry to root
+    //disk.read();
+    //disk.write(ROOT_BLOCK);
     cout << "struct size: " << sizeof(struct dir_entry) << "\n";
     return 0;
 }

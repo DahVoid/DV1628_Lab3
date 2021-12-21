@@ -16,7 +16,7 @@
 #define WRITE 0x02
 #define EXECUTE 0x01
 
-struct dir_entry {
+struct dir_entry { // Size: 64 bytes
     char file_name[56]; // name of the file / sub-directory
     uint32_t size; // size of the file in bytes
     uint16_t first_blk; // index in the FAT for the first block of the file
