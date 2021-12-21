@@ -26,7 +26,7 @@ FS::format()
     fat[i] = FAT_FREE;
     }
     uint8_t *temp;
-  //  disk.write(FAT_BLOCK, uint8_t(fat));
+    //disk.write(FAT_BLOCK, uint8_t(fat));
     //disk.read(FAT_BLOCK, &temp);
     cout << "read from disk" << temp;
 
@@ -46,7 +46,7 @@ FS::create(std::string filepath)
     int size_of_file;
     string string_to_eval;
     string string_to_eval_temp;
-    cout << "Enter the information";
+    cout << "Enter the information: ";
 
     while (getline(cin, string_to_eval_temp) && string_to_eval_temp.length() != 0)
     {
@@ -55,10 +55,9 @@ FS::create(std::string filepath)
 
     size_of_file = string_to_eval.length();
 
-    //handle to big file
+    //TODO: handle to big files
 
     //insert data into directory entry
-    cout << "Access rights: Read: 0, Write: 1, Execute 2.\n";
 
     // check fat for space
     int num_blocks = size_of_file / BLOCK_SIZE;
@@ -66,14 +65,14 @@ FS::create(std::string filepath)
     int free_spaces = 0;
     cout << "Start for loop\n";
     for (int i = 0; i < BLOCK_SIZE/2; i++) {
-      // check if where file can fit
+      // check where the file can fit
       if (fat[i] == FAT_FREE) {
         free_spaces++;
       } else {
         free_spaces = 0;
       }
 
-      if (free_spaces > num_blocks) {
+      if (free_spaces >= num_blocks) {
         cout << "Found space\n";
         // go back and fill
         uint8_t start_block = i - num_blocks;
@@ -92,7 +91,9 @@ FS::create(std::string filepath)
     cout << "End loop\n";
 
     dir_entry *temp_entry = new dir_entry;
+
     strcpy(temp_entry->file_name, filepath.c_str());
+    
     temp_entry->size = size_of_file;
     temp_entry->first_blk = 2; // check fat
     temp_entry->type = TYPE_FILE;
