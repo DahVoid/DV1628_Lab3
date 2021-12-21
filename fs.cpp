@@ -1,6 +1,7 @@
 #include <iostream>
 #include "fs.h"
 #include <cstring>
+#include <vector>
 using namespace std; // Check if used in datorsalen
 //check includes in datorsalen
 FS::FS()
@@ -17,20 +18,23 @@ FS::~FS()
 int
 FS::format()
 {
-
-    fat[0] = ROOT_BLOCK; // Since we're limited to 1 block, we can only use 64 dir_entries
-    fat[1] = FAT_BLOCK; 
-
-    for (int i = 2; i > disk.get_no_blocks(); i++)
+    uint8_t* empty_block = 0;
+ 
+    for (int i = 0; i >= disk.get_no_blocks(); i++)
     {
-    fat[i] = FAT_FREE;
+      fat[i] = FAT_FREE;
+      disk.write(i, empty_block);
     }
-    uint8_t *temp;
-    //disk.write(FAT_BLOCK, uint8_t(fat));
-    //disk.read(FAT_BLOCK, &temp);
-    cout << "read from disk" << temp;
+    dir_entry *temp_entry = new dir_entry;
+    dir_entry dir_entries[BLOCK_SIZE / sizeof(struct dir_entry)]; // Since we're limited to 1 block, we can only use 64 dir_entries
+    
+    fat[ROOT_BLOCK] = 1;
+    disk.write(ROOT_BLOCK, (uint8_t*)&dir_entries); // dir_entries at the file
 
-    //std::cout << "FS::format()\n";
+    fat[FAT_BLOCK] = 1; 
+    disk.write(FAT_BLOCK, (uint8_t*)&fat); // Fat in the file
+
+    std::cout << "FS::format()\n";
     return 0;
 }
 
@@ -41,8 +45,6 @@ FS::create(std::string filepath)
 {
 
     //get file size
-    std::cout << "FS::create(" << filepath << ")\n";
-
     int size_of_file;
     string string_to_eval;
     string string_to_eval_temp;
@@ -72,8 +74,9 @@ FS::create(std::string filepath)
     int free_spaces = 0;
     cout << "Start for loop\n";
     for (int i = 0; i < BLOCK_SIZE/2; i++) {
-      // check where the file can fit
+      // check where the file can fit in the fat
       if (fat[i] == FAT_FREE) {
+        cout << "Free space at: " << i << "\n";
         free_spaces++;
       } else {
         free_spaces = 0;
@@ -82,7 +85,7 @@ FS::create(std::string filepath)
       if (free_spaces >= num_blocks) {
         cout << "Found space\n";
         // go back and fill
-        start_block = i - num_blocks;
+        start_block = i - free_spaces + 1;
         cout << "Start block: " << start_block << "\n";
 
         for(int j = start_block; j < start_block + num_blocks; j++) {
@@ -110,9 +113,10 @@ FS::create(std::string filepath)
     temp_entry->type = TYPE_FILE;
     temp_entry->access_rights = READ;
     // entry to root
-    //disk.read();
     //disk.write(ROOT_BLOCK);
-    cout << "struct size: " << sizeof(struct dir_entry) << "\n";
+   
+    //cout << "struct size: " << sizeof(struct dir_entry) << "\n";
+    std::cout << "FS::create(" << filepath << ")\n";
     return 0;
 }
 
