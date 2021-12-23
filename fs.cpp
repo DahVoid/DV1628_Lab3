@@ -2,11 +2,33 @@
 #include "fs.h"
 #include <cstring>
 #include <vector>
+#include <typeinfo> // for debugging
 using namespace std; // Check if used in datorsalen
 //check includes in datorsalen
+
+dir_entry *dir_entries = new dir_entry[ROOT_SIZE];
+
 FS::FS()
-{
+{ 
     std::cout << "FS::FS()... Creating file system\n";
+    // Init ROOT_BLOCK on boot
+    dir_entry *temp_entries = new dir_entry[ROOT_SIZE];
+    cout << "test\n";
+    disk.read(ROOT_BLOCK, (uint8_t*)temp_entries);
+    cout << "test\n";
+    cout << "found dirs: " << sizeof(dir_entries)/ROOT_SIZE << "\n";
+
+    /*for(int i; i > ROOT_SIZE; i++){
+      dir_entries_vector.push_back(&temp_entries[i]);
+    }*/
+
+    // Init FAT 
+    disk.read(FAT_BLOCK, (uint8_t*)&fat);
+    // Confirm that read properly reads the FAT block
+    int checkIfDataSaved = fat[ROOT_BLOCK];
+    cout << "fat0 should be 1 but is: " << checkIfDataSaved << "\n";
+    string type_str = typeid(fat[ROOT_BLOCK]).name();
+    cout << "fat0 is type: " << type_str << "\n";
 }
 
 FS::~FS()
@@ -18,22 +40,22 @@ FS::~FS()
 int
 FS::format()
 {
-    uint8_t* empty_block = 0;
- 
-    for (int i = 0; i >= disk.get_no_blocks(); i++)
+    string empty_str = "";
+    uint8_t* empty_block = (uint8_t*)empty_str.c_str();
+
+    for (int i = 2; i < disk.get_no_blocks(); i++)
     {
       fat[i] = FAT_FREE;
       disk.write(i, empty_block);
     }
-    dir_entry *temp_entry = new dir_entry;
-    dir_entry dir_entries[BLOCK_SIZE / sizeof(struct dir_entry)]; // Since we're limited to 1 block, we can only use 64 dir_entries
+    dir_entries = new dir_entry[ROOT_SIZE];
     
     fat[ROOT_BLOCK] = 1;
-    disk.write(ROOT_BLOCK, (uint8_t*)&dir_entries); // dir_entries at the file
+    disk.write(ROOT_BLOCK, (uint8_t*)&dir_entries); // dir_entries in the file
 
     fat[FAT_BLOCK] = 1; 
-    disk.write(FAT_BLOCK, (uint8_t*)&fat); // Fat in the file
 
+    disk.write(FAT_BLOCK, (uint8_t*)&fat); // Fat in the file
     std::cout << "FS::format()\n";
     return 0;
 }
@@ -95,7 +117,6 @@ FS::create(std::string filepath)
           disk.write(j, block);
         }
 
-        
         cout << "finished to write \n";
         break;
       }
@@ -112,9 +133,19 @@ FS::create(std::string filepath)
     temp_entry->first_blk = start_block;
     temp_entry->type = TYPE_FILE;
     temp_entry->access_rights = READ;
+    
     // entry to root
-    //disk.write(ROOT_BLOCK);
-   
+    for(int i = 0; i < sizeof(dir_entries)/ROOT_SIZE; i++)
+    if(dir_entries[i].file_name == NULL) {
+        cout << "Empty dir slot in dir array, putting temp array there\n";
+        dir_entries[i] = *temp_entry;
+        break;
+    }
+    cout << "size of temp_entry: " << sizeof(temp_entry) << "\n";
+    cout << "entry_dir lenght: " << sizeof(dir_entries)/ROOT_SIZE << "\n";
+    disk.write(ROOT_BLOCK, (uint8_t*)&dir_entries);  // Can't find this on disk after writing?
+    
+    //cout << "size of root block: " << sizeof(entry_block) << "\n";
     //cout << "struct size: " << sizeof(struct dir_entry) << "\n";
     std::cout << "FS::create(" << filepath << ")\n";
     return 0;
@@ -144,8 +175,11 @@ FS::cat(std::string filepath)
 // ls lists the content in the currect directory (files and sub-directories)
 int
 FS::ls()
-{
-    std::cout << "FS::ls()\n";
+{   disk.read(FAT_BLOCK, (uint8_t*)&fat);
+    int checkIfDataSaved = fat[ROOT_BLOCK];
+    cout << "fat0 should be 1 but is: " << checkIfDataSaved << "\n";
+    string type_str = typeid(fat[ROOT_BLOCK]).name();
+    cout << "fat0 is type: " << type_str << "\n";
  /*   DIR *dir;
     struct dirent *ent;
     if((dir = opendir("./")) != NULL) {

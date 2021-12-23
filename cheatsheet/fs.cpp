@@ -1,6 +1,7 @@
 #include <iostream>
 #include <cstring>
 #include "fs.h"
+#include "vector"
 
 dir_entry *fileInfo = new dir_entry;
 

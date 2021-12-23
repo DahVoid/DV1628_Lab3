@@ -10,6 +10,8 @@
 #define FAT_FREE 0
 #define FAT_EOF -1
 
+#define ROOT_SIZE 64 // The root block can contain 64 data entries.
+
 #define TYPE_FILE 0
 #define TYPE_DIR 1
 #define READ 0x04
