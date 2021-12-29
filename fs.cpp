@@ -12,9 +12,8 @@ FS::FS()
 { 
     std::cout << "FS::FS()... Creating file system\n";
     // Init ROOT_BLOCK on boot
-    dir_entry *temp_entries = new dir_entry[ROOT_SIZE];
     cout << "test\n";
-    disk.read(ROOT_BLOCK, (uint8_t*)temp_entries);
+    disk.read(ROOT_BLOCK, (uint8_t*)dir_entries);
     cout << "test\n";
     cout << "found dirs: " << sizeof(dir_entries)/ROOT_SIZE << "\n";
 
@@ -23,12 +22,14 @@ FS::FS()
     }*/
 
     // Init FAT 
-    disk.read(FAT_BLOCK, (uint8_t*)&fat);
+    disk.read(FAT_BLOCK, (uint8_t*)fat);
     // Confirm that read properly reads the FAT block
     int checkIfDataSaved = fat[ROOT_BLOCK];
     cout << "fat0 should be 1 but is: " << checkIfDataSaved << "\n";
     string type_str = typeid(fat[ROOT_BLOCK]).name();
     cout << "fat0 is type: " << type_str << "\n";
+
+
 }
 
 FS::~FS()
@@ -54,7 +55,7 @@ FS::format()
     disk.write(ROOT_BLOCK, (uint8_t*)&dir_entries); // dir_entries in the file
 
     fat[FAT_BLOCK] = 1; 
-
+    fat[63] = 1337; 
     disk.write(FAT_BLOCK, (uint8_t*)&fat); // Fat in the file
     std::cout << "FS::format()\n";
     return 0;
@@ -135,12 +136,15 @@ FS::create(std::string filepath)
     temp_entry->access_rights = READ;
     
     // entry to root
-    for(int i = 0; i < sizeof(dir_entries)/ROOT_SIZE; i++)
-    if(dir_entries[i].file_name == NULL) {
+    for(int i = 0; i < ROOT_SIZE; i++) {
+      if(dir_entries[i].file_name == NULL) {
         cout << "Empty dir slot in dir array, putting temp array there\n";
         dir_entries[i] = *temp_entry;
         break;
+      }
+
     }
+
     cout << "size of temp_entry: " << sizeof(temp_entry) << "\n";
     cout << "entry_dir lenght: " << sizeof(dir_entries)/ROOT_SIZE << "\n";
     disk.write(ROOT_BLOCK, (uint8_t*)&dir_entries);  // Can't find this on disk after writing?
@@ -180,6 +184,9 @@ FS::ls()
     cout << "fat0 should be 1 but is: " << checkIfDataSaved << "\n";
     string type_str = typeid(fat[ROOT_BLOCK]).name();
     cout << "fat0 is type: " << type_str << "\n";
+    uint8_t* block;
+    disk.read(3, block);
+    cout << "read block 3 as: " << block << "\n";
  /*   DIR *dir;
     struct dirent *ent;
     if((dir = opendir("./")) != NULL) {
@@ -211,7 +218,13 @@ FS::cp(std::string sourcepath, std::string destpath)
 int
 FS::mv(std::string sourcepath, std::string destpath)
 {
-    std::cout << "FS::mv(" << sourcepath << "," << destpath << ")\n";
+    //std::cout << "FS::mv(" << sourcepath << "," << destpath << ")\n";
+    disk.read(FAT_BLOCK, (uint8_t*)&fat);
+    // Iterate over the FAT 
+    for(int i = 0; i < BLOCK_SIZE/2; i++) {
+      cout << "Fat[" << i << "] = " << fat[i] << "\n";
+    }
+
     return 0;
 }
 
