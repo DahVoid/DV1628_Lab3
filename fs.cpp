@@ -4,7 +4,6 @@
 #include <vector>
 #include <typeinfo> // for debugging
 using namespace std; // Check if used in datorsalen
-//check includes in datorsalen
 
 struct dir_entry dir_entries[ROOT_SIZE];
 
@@ -12,23 +11,16 @@ FS::FS()
 { 
     std::cout << "FS::FS()... Creating file system\n";
     // Init ROOT_BLOCK on boot
-    cout << "test\n";
     disk.read(ROOT_BLOCK, (uint8_t*)dir_entries);
-    cout << "test\n";
-    cout << "found dirs: " << sizeof(dir_entries)/ROOT_SIZE << "\n";
-
-    /*for(int i; i > ROOT_SIZE; i++){
-      dir_entries_vector.push_back(&temp_entries[i]);
-    }*/
+    cout << "found dirs on boot: " << sizeof(dir_entries)/ROOT_SIZE << "\n";
 
     // Init FAT 
     disk.read(FAT_BLOCK, (uint8_t*)fat);
+
     // Confirm that read properly reads the FAT block
     int checkIfDataSaved = fat[ROOT_BLOCK];
-    cout << "fat0 should be 1 but is: " << checkIfDataSaved << "\n";
-    string type_str = typeid(fat[ROOT_BLOCK]).name();
-    cout << "fat0 is type: " << type_str << "\n";
-
+    cout << "fat[0] should be 1 but is: " << checkIfDataSaved << "\n";
+    cout << "-- Finished booting -- \n";
 
 }
 
@@ -54,10 +46,10 @@ FS::format()
       
       struct dir_entry temp_entry;
       strcpy(temp_entry.file_name, "");
-      temp_entry.size = NULL;
-      temp_entry.first_blk = NULL;
-      temp_entry.type = NULL;
-      temp_entry.access_rights = NULL;
+      temp_entry.size = 0;
+      temp_entry.first_blk = 0;
+      temp_entry.type = 0;
+      temp_entry.access_rights = 0;
       dir_entries[i] = temp_entry;
     }
     
@@ -65,7 +57,6 @@ FS::format()
     disk.write(ROOT_BLOCK, (uint8_t*)&dir_entries); // dir_entries in the file
 
     fat[FAT_BLOCK] = 1; 
-    fat[63] = 1337; 
     disk.write(FAT_BLOCK, (uint8_t*)&fat); // Fat in the file
     std::cout << "FS::format()\n";
     return 0;
@@ -98,7 +89,7 @@ FS::create(std::string filepath)
 
     // check amount of block
     int num_blocks = size_of_file / BLOCK_SIZE;
-    // Always 1 atleast
+    // Always 1 atleast block
     if(num_blocks == 0) {
       num_blocks = 1;
     }   
@@ -147,8 +138,7 @@ FS::create(std::string filepath)
     
     // entry to root
     for(int i = 0; i < ROOT_SIZE; i++) {
-      cout << "filename = " << dir_entries[i].file_name;
-      if(dir_entries[i].file_name == "") {
+      if(dir_entries[i].first_blk == 0) {
         cout << "Empty dir slot in dir array, putting temp array there\n";
         dir_entries[i] = temp_entry;
         break;
@@ -156,12 +146,8 @@ FS::create(std::string filepath)
 
     }
 
-    cout << "size of temp_entry: " << sizeof(temp_entry) << "\n";
-    cout << "entry_dir lenght: " << sizeof(dir_entries)/ROOT_SIZE << "\n";
-    disk.write(ROOT_BLOCK, (uint8_t*)&dir_entries);  // Can't find this on disk after writing?
-    
-    //cout << "size of root block: " << sizeof(entry_block) << "\n";
-    //cout << "struct size: " << sizeof(struct dir_entry) << "\n";
+    disk.write(ROOT_BLOCK, (uint8_t*)&dir_entries);
+
     std::cout << "FS::create(" << filepath << ")\n";
     return 0;
 }
@@ -190,15 +176,8 @@ FS::cat(std::string filepath)
 // ls lists the content in the currect directory (files and sub-directories)
 int
 FS::ls()
-{   disk.read(FAT_BLOCK, (uint8_t*)&fat);
-    int checkIfDataSaved = fat[ROOT_BLOCK];
-    cout << "fat0 should be 1 but is: " << checkIfDataSaved << "\n";
-    string type_str = typeid(fat[ROOT_BLOCK]).name();
-    cout << "fat0 is type: " << type_str << "\n";
-    uint8_t* block;
-    disk.read(3, block);
-    cout << "read block 3 as: " << block << "\n";
- /*   DIR *dir;
+{  /*
+    DIR *dir;
     struct dirent *ent;
     if((dir = opendir("./")) != NULL) {
       // print all the dir stuff
@@ -210,9 +189,9 @@ FS::ls()
       // no open :((
       perror("");
       return EXIT_FAILURE;
-    }*/
+    }
 
-    return 0;
+    return 0;*/
 }
 
 // cp <sourcepath> <destpath> makes an exact copy of the file
@@ -229,12 +208,7 @@ FS::cp(std::string sourcepath, std::string destpath)
 int
 FS::mv(std::string sourcepath, std::string destpath)
 {
-    //std::cout << "FS::mv(" << sourcepath << "," << destpath << ")\n";
-    disk.read(FAT_BLOCK, (uint8_t*)&fat);
-    // Iterate over the FAT 
-    for(int i = 0; i < BLOCK_SIZE/2; i++) {
-      cout << "Fat[" << i << "] = " << fat[i] << "\n";
-    }
+    std::cout << "FS::mv(" << sourcepath << "," << destpath << ")\n";
 
     return 0;
 }
