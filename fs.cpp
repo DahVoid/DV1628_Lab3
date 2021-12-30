@@ -6,7 +6,7 @@
 using namespace std; // Check if used in datorsalen
 //check includes in datorsalen
 
-dir_entry *dir_entries = new dir_entry[ROOT_SIZE];
+struct dir_entry dir_entries[ROOT_SIZE];
 
 FS::FS()
 { 
@@ -49,7 +49,17 @@ FS::format()
       fat[i] = FAT_FREE;
       disk.write(i, empty_block);
     }
-    dir_entries = new dir_entry[ROOT_SIZE];
+
+    for(int i = 0; i < ROOT_SIZE; i++) {
+      
+      struct dir_entry temp_entry;
+      strcpy(temp_entry.file_name, "");
+      temp_entry.size = NULL;
+      temp_entry.first_blk = NULL;
+      temp_entry.type = NULL;
+      temp_entry.access_rights = NULL;
+      dir_entries[i] = temp_entry;
+    }
     
     fat[ROOT_BLOCK] = 1;
     disk.write(ROOT_BLOCK, (uint8_t*)&dir_entries); // dir_entries in the file
@@ -126,20 +136,21 @@ FS::create(std::string filepath)
 
     cout << "End loop\n";
 
-    dir_entry *temp_entry = new dir_entry;
+    struct dir_entry temp_entry;
 
-    strcpy(temp_entry->file_name, filepath.c_str());
+    strcpy(temp_entry.file_name, filepath.c_str());
     
-    temp_entry->size = size_of_file;
-    temp_entry->first_blk = start_block;
-    temp_entry->type = TYPE_FILE;
-    temp_entry->access_rights = READ;
+    temp_entry.size = size_of_file;
+    temp_entry.first_blk = start_block;
+    temp_entry.type = TYPE_FILE;
+    temp_entry.access_rights = READ;
     
     // entry to root
     for(int i = 0; i < ROOT_SIZE; i++) {
-      if(dir_entries[i].file_name == NULL) {
+      cout << "filename = " << dir_entries[i].file_name;
+      if(dir_entries[i].file_name == "") {
         cout << "Empty dir slot in dir array, putting temp array there\n";
-        dir_entries[i] = *temp_entry;
+        dir_entries[i] = temp_entry;
         break;
       }
 
