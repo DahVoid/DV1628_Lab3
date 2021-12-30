@@ -139,7 +139,7 @@ FS::create(std::string filepath)
     // entry to root
     for(int i = 0; i < ROOT_SIZE; i++) {
       if(dir_entries[i].first_blk == 0) {
-        cout << "Empty dir slot in dir array, putting temp array there\n";
+        cout << "Empty dir slot found, putting dir in slot: " << i <<"\n";
         dir_entries[i] = temp_entry;
         break;
       }
@@ -157,17 +157,36 @@ int
 FS::cat(std::string filepath)
 {
     std::cout << "FS::cat(" << filepath << ")\n";
+    int blocks_to_read;
+    string block_content;
+    int entry_index;
+    string read_data;
 
-    string lineText;
-    // read from txt file
-    ifstream readFile(filepath);
-
-    //get line by line
-    while(getline(readFile, lineText)) {
-      cout << lineText + "\n";
+    // Find file
+    cout << "Finding file \n";
+    for(int i = 0; i < ROOT_SIZE; i++){
+      if(dir_entries[i].file_name == filepath){
+        entry_index = 0;
+        blocks_to_read = dir_entries[i].size/BLOCK_SIZE;
+        // Add rest block if exists
+        if(dir_entries[i].size%BLOCK_SIZE > 0) {
+          blocks_to_read++;
+        }
+        break;
+      }
     }
+  
+    // read from disk
+    cout << "read from disk\n";
+    for(int i = 0; i < blocks_to_read; i++) {
+      disk.read(dir_entries[i].first_blk + i, (uint8_t*)block_content.c_str());
+      read_data = read_data + block_content;
 
-    readFile.close();
+    }
+    
+
+    //Present content
+    cout << read_data;
 
     return 0;
 }
