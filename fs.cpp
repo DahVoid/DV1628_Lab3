@@ -69,6 +69,7 @@ FS::create(std::string filepath)
 {
 
     //get file size
+    bool no_block = false;
     int size_of_file;
     string string_to_eval;
     string string_to_eval_temp;
@@ -84,15 +85,19 @@ FS::create(std::string filepath)
 
 
     size_of_file = string_to_eval.length();
+    int size_of_file_temp = size_of_file;
 
+    cout << string_to_eval;
     //insert data into directory entry
 
     // check amount of block
-    int num_blocks = size_of_file / BLOCK_SIZE;
-    // Always 1 atleast block
-    if(num_blocks == 0) {
-      num_blocks = 1;
-    }   
+    int num_blocks = size_of_file / BLOCK_SIZE + 1;
+
+    // Always 1 atleast
+    // if(num_blocks == 0) {
+    //   num_blocks = 1;
+    //   bool no_block = true;
+    // }
 
     cout << "num blocks: " << num_blocks << "\n";
     int free_spaces = 0;
@@ -115,8 +120,26 @@ FS::create(std::string filepath)
         for(int j = start_block; j < start_block + num_blocks; j++) {
           fat[j] = FAT_BLOCK;
           //TODO SPLIT BLOCK DATA IF TO LARGE
+          if (num_blocks == 1)
+          {
+            disk.write(j, block);
+            break;
+          }
+          for (int r = 0; r < num_blocks-1; r++)
+          {
+            cout << "filling current"<< "\n";
+            string block_to_write = string_to_eval.substr(r*BLOCK_SIZE, r*BLOCK_SIZE + BLOCK_SIZE);
+            uint8_t* block = (uint8_t*)block_to_write.c_str();
+            disk.write(j+r, block);
+            size_of_file_temp = size_of_file_temp - BLOCK_SIZE;
+            cout << size_of_file_temp << "\n";
+          }
+          cout << "filling leftover"<< "\n";
+          string block_to_write = string_to_eval.substr((num_blocks-1)*BLOCK_SIZE, (num_blocks-1)*BLOCK_SIZE + size_of_file_temp);
+          uint8_t* block = (uint8_t*)block_to_write.c_str();
+          disk.write(j+num_blocks-1, block);
           cout << "writing to disk\n";
-          disk.write(j, block);
+          break;
         }
 
         cout << "finished to write \n";
@@ -130,27 +153,33 @@ FS::create(std::string filepath)
     struct dir_entry temp_entry;
 
     strcpy(temp_entry.file_name, filepath.c_str());
-    
+
     temp_entry.size = size_of_file;
     temp_entry.first_blk = start_block;
     temp_entry.type = TYPE_FILE;
     temp_entry.access_rights = READ;
-    
+
     // entry to root
     for(int i = 0; i < ROOT_SIZE; i++) {
+      cout << "filename = " << dir_entries[i].file_name << "\n";
       if(dir_entries[i].first_blk == 0) {
-        cout << "Empty dir slot found, putting dir in slot: " << i <<"\n";
+        cout << "Empty dir slot in dir array, putting temp array there\n";
         dir_entries[i] = temp_entry;
         break;
       }
 
     }
 
-    disk.write(ROOT_BLOCK, (uint8_t*)&dir_entries);
+    cout << "size of temp_entry: " << sizeof(temp_entry) << "\n";
+    cout << "entry_dir lenght: " << sizeof(dir_entries)/ROOT_SIZE << "\n";
+    disk.write(ROOT_BLOCK, (uint8_t*)&dir_entries);  // Can't find this on disk after writing?
 
+    //cout << "size of root block: " << sizeof(entry_block) << "\n";
+    //cout << "struct size: " << sizeof(struct dir_entry) << "\n";
     std::cout << "FS::create(" << filepath << ")\n";
     return 0;
 }
+
 
 // cat <filepath> reads the content of a file and prints it on the screen
 int
