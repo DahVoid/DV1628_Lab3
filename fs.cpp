@@ -229,15 +229,15 @@ FS::cat(std::string filepath)
     cout << "entry index: " << entry_index << "\n";
     cout << "Test" << dir_entries[0].first_blk << endl;
     
-    string block_content;
-    string read_data;
+    char block_content[BLOCK_SIZE];
+    char read_data[BLOCK_SIZE*blocks_to_read];
     int next_block = dir_entries[entry_index].first_blk;
     for(int i = 0; i < blocks_to_read; i++) {
       cout << "reading entry " << next_block << endl;
-      disk.read(next_block, (uint8_t*)block_content.c_str());
-      read_data = read_data + block_content;
-      cout << "read data " << block_content << endl;
- 
+      disk.read(next_block, (uint8_t*)block_content);
+      cout << "read data " << endl;
+      strcat(read_data, block_content);
+
       if(next_block != -1){
         next_block = fat[next_block];
       }
@@ -246,7 +246,7 @@ FS::cat(std::string filepath)
     
 
     //Present content
-    cout << read_data;
+    cout << read_data << endl;
 
     return 0;
 }
