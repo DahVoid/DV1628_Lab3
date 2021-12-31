@@ -116,10 +116,11 @@ FS::create(std::string filepath)
         // go back and fill
         start_block = i - free_space_counter + 1;
         cout << "Start block: " << start_block << "\n";
-
+        
+        //set fat values
         int elements_in_fat_counter = 1;
         for(int j = start_block; j < start_block + num_blocks; j++) {
-          cout << elements_in_fat_counter << " == "<< free_space_counter; // Breaks pga break nedan i loopen.
+          cout << elements_in_fat_counter << " == "<< free_space_counter; //
           if(elements_in_fat_counter == free_space_counter) {
             cout << "Setting EOF \n";
             fat[j] = FAT_EOF;
@@ -130,7 +131,9 @@ FS::create(std::string filepath)
             elements_in_fat_counter++;
           }
         }
+        disk.write(FAT_BLOCK, (uint8_t*)&fat);  
 
+        // Write to the disk
         for(int j = start_block; j < start_block + num_blocks; j++) {
           if (num_blocks == 1)
           {
@@ -171,7 +174,7 @@ FS::create(std::string filepath)
     temp_entry.type = TYPE_FILE;
     temp_entry.access_rights = READ;
 
-    // entry to root
+    // dir_entry to root
     for(int i = 0; i < ROOT_SIZE; i++) {
       if(dir_entries[i].first_blk == 0) {
         cout << "Empty dir slot in dir array, putting temp array there\n";
@@ -183,10 +186,8 @@ FS::create(std::string filepath)
 
     cout << "size of temp_entry: " << sizeof(temp_entry) << "\n";
     cout << "entry_dir lenght: " << sizeof(dir_entries)/ROOT_SIZE << "\n";
-    disk.write(ROOT_BLOCK, (uint8_t*)&dir_entries);  // Can't find this on disk after writing?
+    disk.write(ROOT_BLOCK, (uint8_t*)&dir_entries);  
 
-    //cout << "size of root block: " << sizeof(entry_block) << "\n";
-    //cout << "struct size: " << sizeof(struct dir_entry) << "\n";
     std::cout << "FS::create(" << filepath << ")\n";
     return 0;
 }
@@ -198,9 +199,8 @@ FS::cat(std::string filepath)
 {
     std::cout << "FS::cat(" << filepath << ")\n";
     int blocks_to_read;
-    string block_content;
     int entry_index;
-    string read_data;
+
 
     // Find file
     cout << "Finding file \n";
@@ -228,12 +228,19 @@ FS::cat(std::string filepath)
     cout << "blocks_to_read: " << blocks_to_read << "\n";
     cout << "entry index: " << entry_index << "\n";
     cout << "Test" << dir_entries[0].first_blk << endl;
-
+    
+    string block_content;
+    string read_data;
+    int next_block = dir_entries[entry_index].first_blk;
     for(int i = 0; i < blocks_to_read; i++) {
-      cout << "reading entry " << dir_entries[entry_index].first_blk + i << endl;
-      disk.read(dir_entries[entry_index].first_blk + i, (uint8_t*)block_content.c_str());
-
+      cout << "reading entry " << next_block << endl;
+      disk.read(next_block, (uint8_t*)block_content.c_str());
       read_data = read_data + block_content;
+      cout << "read data " << block_content << endl;
+ 
+      if(next_block != -1){
+        next_block = fat[next_block];
+      }
 
     }
     
