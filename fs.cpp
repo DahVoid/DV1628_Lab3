@@ -125,8 +125,8 @@ FS::create(std::string filepath)
             fat[j] = FAT_EOF;
             elements_in_fat_counter++;
           } else {
-            cout << "Adding element in fat\n";
-            fat[j] = free_spaces[free_space_counter];
+            cout << "Adding element in fat " << free_spaces[elements_in_fat_counter-1] << "\n";
+            fat[j] = free_spaces[elements_in_fat_counter];
             elements_in_fat_counter++;
           }
         }
@@ -265,7 +265,7 @@ FS::ls()
 int
 FS::cp(std::string sourcepath, std::string destpath)
 {
-    std::cout << "FS::cp(" << sourcepath << "," << destpath << ")\n";
+   /* std::cout << "FS::cp(" << sourcepath << "," << destpath << ")\n";
     int dir_entry_index = -1;
     char name_array[56];
 
@@ -289,7 +289,7 @@ FS::cp(std::string sourcepath, std::string destpath)
       cout << "No file with that name found";
       return 0;
     }
-    return 0;
+    return 0;*/
 }
 
 // mv <sourcepath> <destpath> renames the file <sourcepath> to the name <destpath>,
