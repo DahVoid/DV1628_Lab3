@@ -53,10 +53,10 @@ FS::format()
       dir_entries[i] = temp_entry;
     }
     
-    fat[ROOT_BLOCK] = 1;
+    fat[ROOT_BLOCK] = FAT_EOF;
     disk.write(ROOT_BLOCK, (uint8_t*)&dir_entries); // dir_entries in the file
 
-    fat[FAT_BLOCK] = 1; 
+    fat[FAT_BLOCK] = FAT_EOF; 
     disk.write(FAT_BLOCK, (uint8_t*)&fat); // Fat in the file
     std::cout << "FS::format()\n";
     return 0;
@@ -100,26 +100,38 @@ FS::create(std::string filepath)
     // }
 
     cout << "num blocks: " << num_blocks << "\n";
-    int free_spaces = 0;
+    int free_spaces[num_blocks];
+    int free_space_counter = 0;
     cout << "Start for loop\n";
     for (int i = 0; i < BLOCK_SIZE/2; i++) {
       // check where the file can fit in the fat
       if (fat[i] == FAT_FREE) {
         cout << "Free space at: " << i << "\n";
-        free_spaces++;
-      } else {
-        free_spaces = 0;
+        free_spaces[free_space_counter] = i;
+        free_space_counter++;
       }
 
-      if (free_spaces >= num_blocks) {
+      if (free_space_counter >= num_blocks) {
         cout << "Found space\n";
         // go back and fill
-        start_block = i - free_spaces + 1;
+        start_block = i - free_space_counter + 1;
         cout << "Start block: " << start_block << "\n";
 
+        int elements_in_fat_counter = 1;
         for(int j = start_block; j < start_block + num_blocks; j++) {
-          fat[j] = FAT_BLOCK;
-          //TODO SPLIT BLOCK DATA IF TO LARGE
+          cout << elements_in_fat_counter << " == "<< free_space_counter; // Breaks pga break nedan i loopen.
+          if(elements_in_fat_counter == free_space_counter) {
+            cout << "Setting EOF \n";
+            fat[j] = FAT_EOF;
+            elements_in_fat_counter++;
+          } else {
+            cout << "Adding element in fat\n";
+            fat[j] = free_spaces[free_space_counter];
+            elements_in_fat_counter++;
+          }
+        }
+
+        for(int j = start_block; j < start_block + num_blocks; j++) {
           if (num_blocks == 1)
           {
             disk.write(j, block);
@@ -161,7 +173,6 @@ FS::create(std::string filepath)
 
     // entry to root
     for(int i = 0; i < ROOT_SIZE; i++) {
-      cout << "filename = " << dir_entries[i].file_name << "\n";
       if(dir_entries[i].first_blk == 0) {
         cout << "Empty dir slot in dir array, putting temp array there\n";
         dir_entries[i] = temp_entry;
@@ -194,8 +205,9 @@ FS::cat(std::string filepath)
     // Find file
     cout << "Finding file \n";
     for(int i = 0; i < ROOT_SIZE; i++){
+
       if(dir_entries[i].file_name == filepath){
-        entry_index = 0;
+        entry_index = i;
         blocks_to_read = dir_entries[i].size/BLOCK_SIZE;
         // Add rest block if exists
         if(dir_entries[i].size%BLOCK_SIZE > 0) {
@@ -204,11 +216,23 @@ FS::cat(std::string filepath)
         break;
       }
     }
+
+    if(blocks_to_read == 0){
+      cout << "Can't find file \n";
+      return -1;
+    }
   
     // read from disk
     cout << "read from disk\n";
+    cout << sizeof(dir_entries)/sizeof(struct dir_entry) << "\n";
+    cout << "blocks_to_read: " << blocks_to_read << "\n";
+    cout << "entry index: " << entry_index << "\n";
+    cout << "Test" << dir_entries[0].first_blk << endl;
+
     for(int i = 0; i < blocks_to_read; i++) {
-      disk.read(dir_entries[i].first_blk + i, (uint8_t*)block_content.c_str());
+      cout << "reading entry " << dir_entries[entry_index].first_blk + i << endl;
+      disk.read(dir_entries[entry_index].first_blk + i, (uint8_t*)block_content.c_str());
+
       read_data = read_data + block_content;
 
     }
@@ -224,22 +248,16 @@ FS::cat(std::string filepath)
 // ls lists the content in the currect directory (files and sub-directories)
 int
 FS::ls()
-{  /*
-    DIR *dir;
-    struct dirent *ent;
-    if((dir = opendir("./")) != NULL) {
-      // print all the dir stuff
-      while ((ent = readdir(dir)) != NULL) {
-        printf ("%s    %d\n", ent->d_name, sizeof(ent)); // file size är fel här, MEN! när vi har vårat egna filsystem bör vi kunna checka på FAT:en.
+{ 
+  for (int i = 0; i < ROOT_SIZE; i++)
+      {
+        if (dir_entries[i].first_blk != 0)
+        {
+          cout << dir_entries[i].file_name << "\n";
+        }
       }
-      closedir(dir);
-    } else {
-      // no open :((
-      perror("");
-      return EXIT_FAILURE;
-    }
 
-    return 0;*/
+    return 0;
 }
 
 // cp <sourcepath> <destpath> makes an exact copy of the file
@@ -248,6 +266,29 @@ int
 FS::cp(std::string sourcepath, std::string destpath)
 {
     std::cout << "FS::cp(" << sourcepath << "," << destpath << ")\n";
+    int dir_entry_index = -1;
+    char name_array[56];
+
+    for (int i = 0; i < ROOT_SIZE; i++)
+    {
+      if (dir_entries[i].first_blk != 0)
+      {
+        strcpy(name_array, sourcepath.c_str());
+
+        if (dir_entries[i].file_name = sourcepath)
+        {
+          cout << "found file!";
+          dir_entry_index = i;
+          break;
+        }
+      }
+    }
+
+    if (dir_entry_index == -1)
+    {
+      cout << "No file with that name found";
+      return 0;
+    }
     return 0;
 }
 
@@ -310,5 +351,9 @@ int
 FS::chmod(std::string accessrights, std::string filepath)
 {
     std::cout << "FS::chmod(" << accessrights << "," << filepath << ")\n";
+    for (int i = 0; i < 64 ; i++){
+      cout << "fat[" << i << "] = " << fat[i] << "\n";
+    }
+
     return 0;
 }
