@@ -223,14 +223,9 @@ FS::cat(std::string filepath)
     }
   
     // read from disk
-    cout << "read from disk\n";
-    cout << sizeof(dir_entries)/sizeof(struct dir_entry) << "\n";
-    cout << "blocks_to_read: " << blocks_to_read << "\n";
-    cout << "entry index: " << entry_index << "\n";
-    cout << "Test" << dir_entries[0].first_blk << endl;
-    
     char block_content[BLOCK_SIZE];
     char read_data[BLOCK_SIZE*blocks_to_read];
+    memset(read_data, 0, BLOCK_SIZE*blocks_to_read);
     int next_block = dir_entries[entry_index].first_blk;
     for(int i = 0; i < blocks_to_read; i++) {
       cout << "reading entry " << next_block << endl;
@@ -305,7 +300,23 @@ int
 FS::mv(std::string sourcepath, std::string destpath)
 {
     std::cout << "FS::mv(" << sourcepath << "," << destpath << ")\n";
+    // Is destpath a directory?
+    for(int i = 0; i < ROOT_SIZE; i++){
+      if(dir_entries[i].file_name == destpath && dir_entries[i].type == TYPE_DIR){
+        cout << "TODO Move to directory \n" << endl;
+        return 0;
+      }
+    }
 
+    // find source file
+    for(int i = 0; i < ROOT_SIZE; i++){
+      if(dir_entries[i].file_name == sourcepath){
+        strcpy(dir_entries[i].file_name, destpath.c_str());
+        return 0;
+      }
+    }
+
+    cout << "No file with the name: " << sourcepath.c_str() << "\n";
     return 0;
 }
 
@@ -314,6 +325,38 @@ int
 FS::rm(std::string filepath)
 {
     std::cout << "FS::rm(" << filepath << ")\n";
+    for(int i = 0; i < ROOT_SIZE; i++){
+      if(dir_entries[i].file_name == filepath){
+        // Clear fat
+        int blocks_to_read = dir_entries[i].size/BLOCK_SIZE;
+        if(dir_entries[i].size%BLOCK_SIZE > 0) {
+          blocks_to_read++;
+        }
+        
+        int curr_block = dir_entries[i].first_blk;
+        int index = curr_block;
+        cout << "blocks to remove " << blocks_to_read << endl;
+        for (int i = 0; i < blocks_to_read; i++) {
+          cout << "fat[" << curr_block << "] = " << fat[curr_block] << endl;
+          index = curr_block;  
+          if(curr_block != -1){
+          curr_block = fat[curr_block];
+          }
+          fat[index] = FAT_FREE;
+
+        }
+
+        // Clear dir entry
+        struct dir_entry temp_entry;
+        strcpy(temp_entry.file_name, "");
+        temp_entry.size = 0;
+        temp_entry.first_blk = 0;
+        temp_entry.type = 0;
+        temp_entry.access_rights = 0;
+        dir_entries[i] = temp_entry;
+        cout << "Removed \n";
+      }
+    }
     return 0;
 }
 
