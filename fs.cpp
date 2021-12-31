@@ -260,7 +260,7 @@ FS::ls()
       {
         if (dir_entries[i].first_blk != 0)
         {
-          cout << dir_entries[i].file_name << "\n";
+          cout << dir_entries[i].file_name << "                     " << dir_entries[i].size << "\n";
         }
       }
 
