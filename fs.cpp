@@ -6,6 +6,8 @@
 using namespace std; // Check if used in datorsalen
 
 struct dir_entry dir_entries[ROOT_SIZE];
+char dir_path[1][56] = {""};
+
 
 FS::FS()
 {
