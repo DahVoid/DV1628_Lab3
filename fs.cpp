@@ -69,7 +69,6 @@ FS::create(std::string filepath)
 {
 
     //get file size
-    bool no_block = false;
     int size_of_file;
     string string_to_eval;
     string string_to_eval_temp;
@@ -92,12 +91,6 @@ FS::create(std::string filepath)
 
     // check amount of block
     int num_blocks = size_of_file / BLOCK_SIZE + 1;
-
-    // Always 1 atleast
-    // if(num_blocks == 0) {
-    //   num_blocks = 1;
-    //   bool no_block = true;
-    // }
 
     cout << "num blocks: " << num_blocks << "\n";
     int free_spaces[num_blocks];
@@ -507,6 +500,234 @@ int
 FS::append(std::string filepath1, std::string filepath2)
 {
     std::cout << "FS::append(" << filepath1 << "," << filepath2 << ")\n";
+
+    // *""*""*""*""*"" FIND FILES *""*""*""*""*""**
+    //File 1
+    int dir_entry_index_1 = -1;
+    char name_array_1[56];
+
+    for (int i = 0; i < ROOT_SIZE; i++)
+    {
+      if (dir_entries[i].first_blk != 0)
+      {
+        strcpy(name_array_1, filepath1.c_str());
+
+        if (dir_entries[i].file_name == filepath1)
+        {
+          cout << "found file!\n";
+          dir_entry_index_1 = i;
+          break;
+        }
+      }
+    }
+
+    if (dir_entry_index_1 == -1)
+    {
+      cout << "No file with that name found\n";
+      return 0;
+    }
+
+    int blocks_to_read_1 = dir_entries[dir_entry_index_1].size/BLOCK_SIZE;
+    if(dir_entries[dir_entry_index_1].size%BLOCK_SIZE > 0)
+    {
+      blocks_to_read_1++;
+    }
+
+
+    //File 2
+    int dir_entry_index_2 = -1;
+    char name_array_2[56];
+
+    for (int i = 0; i < ROOT_SIZE; i++)
+    {
+      if (dir_entries[i].first_blk != 0)
+      {
+        strcpy(name_array_2, filepath2.c_str());
+
+        if (dir_entries[i].file_name == filepath2)
+        {
+          cout << "found file!\n";
+          dir_entry_index_2 = i;
+          break;
+        }
+      }
+    }
+
+    if (dir_entry_index_2 == -1)
+    {
+      cout << "No file with that name found\n";
+      return 0;
+    }
+
+    int blocks_to_read_2 = dir_entries[dir_entry_index_2].size/BLOCK_SIZE;
+    if(dir_entries[dir_entry_index_2].size%BLOCK_SIZE > 0)
+    {
+      blocks_to_read_2++;
+    }
+
+    // *""*""*""*""*"" READ FILE INFO *""*""*""*""*""**
+    //file 1
+    uint32_t size_of_file_1 = dir_entries[dir_entry_index_1].size;
+    uint16_t first_block_1 = dir_entries[dir_entry_index_1].first_blk;
+    uint8_t type_1 = dir_entries[dir_entry_index_1].type;
+    uint8_t access_rights_1 = dir_entries[dir_entry_index_1].access_rights;
+
+    //file_2
+    uint32_t size_of_file_2 = dir_entries[dir_entry_index_2].size;
+    uint16_t first_block_2 = dir_entries[dir_entry_index_2].first_blk;
+    uint8_t type_2 = dir_entries[dir_entry_index_2].type;
+    uint8_t access_rights_2 = dir_entries[dir_entry_index_2].access_rights;
+
+    // *""*""*""*""*"" READ DATA FROM FILES *""*""*""*""*""**
+    //file 1
+    char block_content_1[BLOCK_SIZE];
+    char read_data_1[BLOCK_SIZE*blocks_to_read_1];
+    int next_block_1 = dir_entries[dir_entry_index_1].first_blk;
+    for(int i = 0; i < blocks_to_read_1; i++)
+    {
+      cout << "reading entry " << next_block_1 << endl;
+      disk.read(next_block_1, (uint8_t*)block_content_1);
+      cout << "read data " << endl;
+      strcat(read_data_1, block_content_1);
+
+      if(next_block_1 != -1)
+      {
+        next_block_1 = fat[next_block_1];
+      }
+    }
+
+    //file 2
+    char block_content_2[BLOCK_SIZE];
+    char read_data_2[BLOCK_SIZE*blocks_to_read_2];
+    int next_block_2 = dir_entries[dir_entry_index_2].first_blk;
+    for(int i = 0; i < blocks_to_read_2; i++)
+    {
+      cout << "reading entry " << next_block_2 << endl;
+      disk.read(next_block_2, (uint8_t*)block_content_2);
+      cout << "read data " << endl;
+      strcat(read_data_2, block_content_2);
+
+      if(next_block_2 != -1)
+      {
+        next_block_2 = fat[next_block_2];
+      }
+    }
+
+    // *""*""*""*""*"" APPEND DATA *""*""*""*""*""**
+    strcat(read_data_2, read_data_1);
+
+    // *""*""*""*""*"" REMOVE FILE 2 *""*""*""*""*""**
+    rm(filepath2);
+
+    // *""*""*""*""*"" ADD NEW FILE 2 *""*""*""*""*""**
+
+    //get file size
+    int start_block;
+    string string_to_eval = read_data_2;
+    // convert string_to_eval to uint8_t*
+    uint8_t* block = (uint8_t*)string_to_eval.c_str();
+
+    int size_of_file = string_to_eval.length();
+    int size_of_file_temp = size_of_file;
+
+    cout << string_to_eval;
+    //insert data into directory entry
+
+    // check amount of block
+    int num_blocks = size_of_file / BLOCK_SIZE + 1;
+
+    // Always 1 atleast
+    // if(num_blocks == 0) {
+    //   num_blocks = 1;
+    //   bool no_block = true;
+    // }
+
+    cout << "num blocks: " << num_blocks << "\n";
+    int free_spaces[num_blocks];
+    int free_space_counter = 0;
+    cout << "Start for loop\n";
+    for (int i = 0; i < BLOCK_SIZE/2; i++) {
+      // check where the file can fit in the fat
+      if (fat[i] == FAT_FREE) {
+        cout << "Free space at: " << i << "\n";
+        free_spaces[free_space_counter] = i;
+        free_space_counter++;
+      }
+
+      if (free_space_counter >= num_blocks) {
+        cout << "Found space\n";
+        // go back and fill
+        start_block = i - free_space_counter + 1;
+        cout << "Start block: " << start_block << "\n";
+
+        int elements_in_fat_counter = 1;
+        for(int j = start_block; j < start_block + num_blocks; j++) {
+          cout << elements_in_fat_counter << " == "<< free_space_counter; // Breaks pga break nedan i loopen.
+          if(elements_in_fat_counter == free_space_counter) {
+            cout << "Setting EOF \n";
+            fat[j] = FAT_EOF;
+            elements_in_fat_counter++;
+          } else {
+            cout << "Adding element in fat " << free_spaces[elements_in_fat_counter-1] << "\n";
+            fat[j] = free_spaces[elements_in_fat_counter];
+            elements_in_fat_counter++;
+          }
+        }
+
+        for(int j = start_block; j < start_block + num_blocks; j++) {
+          if (num_blocks == 1)
+          {
+            disk.write(j, block);
+            break;
+          }
+          for (int r = 0; r < num_blocks-1; r++)
+          {
+            cout << "filling current"<< "\n";
+            string block_to_write = string_to_eval.substr(r*BLOCK_SIZE, r*BLOCK_SIZE + BLOCK_SIZE);
+            uint8_t* block = (uint8_t*)block_to_write.c_str();
+            disk.write(j+r, block);
+            size_of_file_temp = size_of_file_temp - BLOCK_SIZE;
+            cout << size_of_file_temp << "\n";
+          }
+          cout << "filling leftover"<< "\n";
+          string block_to_write = string_to_eval.substr((num_blocks-1)*BLOCK_SIZE, (num_blocks-1)*BLOCK_SIZE + size_of_file_temp);
+          uint8_t* block = (uint8_t*)block_to_write.c_str();
+          disk.write(j+num_blocks-1, block);
+          cout << "writing to disk\n";
+          break;
+        }
+
+        cout << "finished to write \n";
+        break;
+      }
+
+    }
+
+    cout << "End loop\n";
+
+    struct dir_entry temp_entry;
+
+    strcpy(temp_entry.file_name, filepath2.c_str());
+
+    temp_entry.size = size_of_file;
+    temp_entry.first_blk = start_block;
+    temp_entry.type = type_2;
+    temp_entry.access_rights = access_rights_2;
+
+    // entry to root
+    for(int i = 0; i < ROOT_SIZE; i++) {
+      if(dir_entries[i].first_blk == 0) {
+        cout << "Empty dir slot in dir array, putting temp array there\n";
+        dir_entries[i] = temp_entry;
+        break;
+      }
+
+    }
+
+    cout << "size of temp_entry: " << sizeof(temp_entry) << "\n";
+    cout << "entry_dir lenght: " << sizeof(dir_entries)/ROOT_SIZE << "\n";
+    disk.write(ROOT_BLOCK, (uint8_t*)&dir_entries);  // Can't find this on disk after writing?
+
     return 0;
 }
 
@@ -516,6 +737,8 @@ int
 FS::mkdir(std::string dirpath)
 {
     std::cout << "FS::mkdir(" << dirpath << ")\n";
+    int start_block;
+
     return 0;
 }
 
