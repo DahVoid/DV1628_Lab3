@@ -1,6 +1,7 @@
 #include <iostream>
 #include "fs.h"
 #include <cstring>
+#include <string>
 #include <vector>
 #include <typeinfo> // for debugging
 using namespace std; // Check if used in datorsalen
@@ -738,8 +739,67 @@ FS::mkdir(std::string dirpath)
 {
     std::cout << "FS::mkdir(" << dirpath << ")\n";
     int start_block;
+    int num_blocks = 1;
 
+    int free_spaces[num_blocks];
+    int free_space_counter = 0;
+
+      for (int i = 0; i < BLOCK_SIZE/2; i++) {
+        // check where the file can fit in the fat
+        if (fat[i] == FAT_FREE) {
+          free_spaces[free_space_counter] = i;
+          free_space_counter++;
+        }
+
+        if (free_space_counter >= num_blocks) {
+          // go back and fill
+          start_block = i - free_space_counter + 1;
+          
+          //set fat values
+          int elements_in_fat_counter = 1;
+          for(int j = start_block; j < start_block + num_blocks; j++) {
+            cout << elements_in_fat_counter << " == "<< free_space_counter; //
+            if(elements_in_fat_counter == free_space_counter) {
+              fat[j] = FAT_EOF;
+              elements_in_fat_counter++;
+            } else {
+              fat[j] = free_spaces[elements_in_fat_counter];
+              elements_in_fat_counter++;
+            }
+          }
+          disk.write(FAT_BLOCK, (uint8_t*)&fat);  
+
+          // write content list to disk
+          
+          char content_list[73][56] = {".."}; // Block size / filename size(56) ~ 73
+          uint8_t* block = (uint8_t*)content_list;
+          disk.write(start_block, block);
+
+          // write dir entry list
+          struct dir_entry temp_entry;
+
+          strcpy(temp_entry.file_name, dirpath.c_str());
+
+          temp_entry.size = 0;
+          temp_entry.first_blk = start_block;
+          temp_entry.type = TYPE_DIR;
+          temp_entry.access_rights = READ;
+
+          // dir_entry to root block
+          //find empty slot in dir entries
+          for(int i = 0; i < ROOT_SIZE; i++) {
+            if(dir_entries[i].first_blk == 0) {
+              dir_entries[i] = temp_entry;
+              break;
+            }
+
+          }
+          disk.write(ROOT_BLOCK, (uint8_t*)&dir_entries); 
+          break;
+        }
+      }
     return 0;
+    
 }
 
 // cd <dirpath> changes the current (working) directory to the directory named <dirpath>
