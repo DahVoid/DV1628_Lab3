@@ -6,7 +6,9 @@
 using namespace std; // Check if used in datorsalen
 
 struct dir_entry dir_entries[ROOT_SIZE];
-char dir_path[1][56] = {""};
+char char_dir_path[1][56] = {""};
+std::vector<std::string> dir_path{""};
+
 
 
 FS::FS()
@@ -703,9 +705,25 @@ FS::mkdir(std::string dirpath)
 
 // cd <dirpath> changes the current (working) directory to the directory named <dirpath>
 int
-FS::cd(std::string dirpath)
+FS::cd(std::string new_dir)
 {
-    std::cout << "FS::cd(" << dirpath << ")\n";
+    std::cout << "FS::cd(" << new_dir << ")\n";
+// if new directory is ".." then we go up one level.
+  if (new_dir == "..") {
+    if(dir_path.size() == 1){
+      cout << "Can't go futher up, you're at root. \n";
+      return -1;
+    }
+
+    dir_path.resize(dir_path.size() - 1);
+    // get new dir content
+    return 0;
+  } else {
+    dir_path.push_back(new_dir);
+     // get new dir content
+    return 0;
+  }
+    cout << "directory not found" << endl;
     return 0;
 }
 
@@ -715,6 +733,20 @@ int
 FS::pwd()
 {
     std::cout << "FS::pwd()\n";
+    string output_str = "";
+    string temp;
+    if(dir_path.size() > 1 ) {
+      for(int i = 1; i < dir_path.size(); i++) {
+        temp += dir_path[i];
+        output_str.append("/" + temp);
+      }
+
+    } else {
+      output_str.append("/");
+    }
+
+    
+    cout << output_str << std::endl;
     return 0;
 }
 
