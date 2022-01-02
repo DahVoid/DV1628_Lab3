@@ -55,7 +55,7 @@ FS::format()
     
     fat[ROOT_BLOCK] = FAT_EOF;
     disk.write(ROOT_BLOCK, (uint8_t*)&dir_entries); // dir_entries in the file
-
+    
     fat[FAT_BLOCK] = FAT_EOF; 
     disk.write(FAT_BLOCK, (uint8_t*)&fat); // Fat in the file
     std::cout << "FS::format()\n";
@@ -201,7 +201,6 @@ FS::cat(std::string filepath)
     int blocks_to_read;
     int entry_index;
 
-
     // Find file
     cout << "Finding file \n";
     for(int i = 0; i < ROOT_SIZE; i++){
@@ -325,7 +324,6 @@ FS::cp(std::string sourcepath, std::string destpath)
 
     //**''*''*'''*''*''**CREATE FILE copied from CREATE function**''*''*''*
 
-
     //get file size
     int start_block;
     cout << "Enter the information: ";
@@ -340,12 +338,6 @@ FS::cp(std::string sourcepath, std::string destpath)
 
     // check amount of block
     int num_blocks = size_of_file / BLOCK_SIZE + 1;
-
-    // Always 1 atleast
-    // if(num_blocks == 0) {
-    //   num_blocks = 1;
-    //   bool no_block = true;
-    // }
 
     cout << "num blocks: " << num_blocks << "\n";
     int free_spaces[num_blocks];
@@ -431,12 +423,8 @@ FS::cp(std::string sourcepath, std::string destpath)
 
     cout << "size of temp_entry: " << sizeof(temp_entry) << "\n";
     cout << "entry_dir lenght: " << sizeof(dir_entries)/ROOT_SIZE << "\n";
-    disk.write(ROOT_BLOCK, (uint8_t*)&dir_entries);  // Can't find this on disk after writing?
-
-    //cout << "size of root block: " << sizeof(entry_block) << "\n";
-    //cout << "struct size: " << sizeof(struct dir_entry) << "\n";
-
-
+    disk.write(ROOT_BLOCK, (uint8_t*)&dir_entries); // dir_entries in the file
+    disk.write(FAT_BLOCK, (uint8_t*)&fat); // Fat in the file
 
     return 0;
 }
@@ -459,6 +447,8 @@ FS::mv(std::string sourcepath, std::string destpath)
     for(int i = 0; i < ROOT_SIZE; i++){
       if(dir_entries[i].file_name == sourcepath){
         strcpy(dir_entries[i].file_name, destpath.c_str());
+        disk.write(ROOT_BLOCK, (uint8_t*)&dir_entries); // dir_entries in the file
+
         return 0;
       }
     }
@@ -504,6 +494,10 @@ FS::rm(std::string filepath)
         cout << "Removed \n";
       }
     }
+
+    disk.write(ROOT_BLOCK, (uint8_t*)&dir_entries); // dir_entries in the file
+    disk.write(FAT_BLOCK, (uint8_t*)&fat); // Fat in the file
+
     return 0;
 }
 
