@@ -1,7 +1,6 @@
 #include <iostream>
 #include "fs.h"
 #include <cstring>
-#include <string>
 #include <vector>
 #include <typeinfo> // for debugging
 using namespace std; // Check if used in datorsalen
@@ -9,18 +8,16 @@ using namespace std; // Check if used in datorsalen
 struct dir_entry dir_entries[ROOT_SIZE];
 
 FS::FS()
-{ 
+{
     std::cout << "FS::FS()... Creating file system\n";
     // Init ROOT_BLOCK on boot
     disk.read(ROOT_BLOCK, (uint8_t*)dir_entries);
-    cout << "found dirs on boot: " << sizeof(dir_entries)/ROOT_SIZE << "\n";
 
-    // Init FAT 
+    // Init FAT
     disk.read(FAT_BLOCK, (uint8_t*)fat);
 
     // Confirm that read properly reads the FAT block
     int checkIfDataSaved = fat[ROOT_BLOCK];
-    cout << "fat[0] should be 1 but is: " << checkIfDataSaved << "\n";
     cout << "-- Finished booting -- \n";
 
 }
@@ -44,7 +41,7 @@ FS::format()
     }
 
     for(int i = 0; i < ROOT_SIZE; i++) {
-      
+
       struct dir_entry temp_entry;
       strcpy(temp_entry.file_name, "");
       temp_entry.size = 0;
@@ -53,11 +50,11 @@ FS::format()
       temp_entry.access_rights = 0;
       dir_entries[i] = temp_entry;
     }
-    
+
     fat[ROOT_BLOCK] = FAT_EOF;
     disk.write(ROOT_BLOCK, (uint8_t*)&dir_entries); // dir_entries in the file
-    
-    fat[FAT_BLOCK] = FAT_EOF; 
+
+    fat[FAT_BLOCK] = FAT_EOF;
     disk.write(FAT_BLOCK, (uint8_t*)&fat); // Fat in the file
     std::cout << "FS::format()\n";
     return 0;
@@ -68,7 +65,6 @@ FS::format()
 int
 FS::create(std::string filepath)
 {
-
     //get file size
     int size_of_file;
     string string_to_eval;
@@ -83,49 +79,39 @@ FS::create(std::string filepath)
     // convert string_to_eval to uint8_t*
     uint8_t* block = (uint8_t*)string_to_eval.c_str();
 
-
     size_of_file = string_to_eval.length();
     int size_of_file_temp = size_of_file;
 
-    cout << string_to_eval;
     //insert data into directory entry
 
     // check amount of block
     int num_blocks = size_of_file / BLOCK_SIZE + 1;
 
-    cout << "num blocks: " << num_blocks << "\n";
     int free_spaces[num_blocks];
     int free_space_counter = 0;
-    cout << "Start for loop\n";
     for (int i = 0; i < BLOCK_SIZE/2; i++) {
       // check where the file can fit in the fat
       if (fat[i] == FAT_FREE) {
-        cout << "Free space at: " << i << "\n";
         free_spaces[free_space_counter] = i;
         free_space_counter++;
       }
 
       if (free_space_counter >= num_blocks) {
-        cout << "Found space\n";
         // go back and fill
         start_block = i - free_space_counter + 1;
-        cout << "Start block: " << start_block << "\n";
-        
+
         //set fat values
         int elements_in_fat_counter = 1;
         for(int j = start_block; j < start_block + num_blocks; j++) {
-          cout << elements_in_fat_counter << " == "<< free_space_counter; //
           if(elements_in_fat_counter == free_space_counter) {
-            cout << "Setting EOF \n";
             fat[j] = FAT_EOF;
             elements_in_fat_counter++;
           } else {
-            cout << "Adding element in fat " << free_spaces[elements_in_fat_counter-1] << "\n";
             fat[j] = free_spaces[elements_in_fat_counter];
             elements_in_fat_counter++;
           }
         }
-        disk.write(FAT_BLOCK, (uint8_t*)&fat);  
+        disk.write(FAT_BLOCK, (uint8_t*)&fat);
 
         // Write to the disk
         for(int j = start_block; j < start_block + num_blocks; j++) {
@@ -136,28 +122,19 @@ FS::create(std::string filepath)
           }
           for (int r = 0; r < num_blocks-1; r++)
           {
-            cout << "filling current"<< "\n";
             string block_to_write = string_to_eval.substr(r*BLOCK_SIZE, r*BLOCK_SIZE + BLOCK_SIZE);
             uint8_t* block = (uint8_t*)block_to_write.c_str();
             disk.write(j+r, block);
             size_of_file_temp = size_of_file_temp - BLOCK_SIZE;
-            cout << size_of_file_temp << "\n";
           }
-          cout << "filling leftover"<< "\n";
           string block_to_write = string_to_eval.substr((num_blocks-1)*BLOCK_SIZE, (num_blocks-1)*BLOCK_SIZE + size_of_file_temp);
           uint8_t* block = (uint8_t*)block_to_write.c_str();
           disk.write(j+num_blocks-1, block);
-          cout << "writing to disk\n";
           break;
         }
-
-        cout << "finished to write \n";
         break;
       }
-
     }
-
-    cout << "End loop\n";
 
     struct dir_entry temp_entry;
 
@@ -171,16 +148,13 @@ FS::create(std::string filepath)
     // dir_entry to root
     for(int i = 0; i < ROOT_SIZE; i++) {
       if(dir_entries[i].first_blk == 0) {
-        cout << "Empty dir slot in dir array, putting temp array there\n";
         dir_entries[i] = temp_entry;
         break;
       }
 
     }
 
-    cout << "size of temp_entry: " << sizeof(temp_entry) << "\n";
-    cout << "entry_dir lenght: " << sizeof(dir_entries)/ROOT_SIZE << "\n";
-    disk.write(ROOT_BLOCK, (uint8_t*)&dir_entries);  
+    disk.write(ROOT_BLOCK, (uint8_t*)&dir_entries);
 
     std::cout << "FS::create(" << filepath << ")\n";
     return 0;
@@ -196,7 +170,6 @@ FS::cat(std::string filepath)
     int entry_index;
 
     // Find file
-    cout << "Finding file \n";
     for(int i = 0; i < ROOT_SIZE; i++){
 
       if(dir_entries[i].file_name == filepath){
@@ -211,39 +184,32 @@ FS::cat(std::string filepath)
     }
 
     if(blocks_to_read == 0){
-      cout << "Can't find file \n";
       return -1;
     }
-  
+
     // read from disk
     char block_content[BLOCK_SIZE];
     char read_data[BLOCK_SIZE*blocks_to_read];
     memset(read_data, 0, BLOCK_SIZE*blocks_to_read);
     int next_block = dir_entries[entry_index].first_blk;
     for(int i = 0; i < blocks_to_read; i++) {
-      cout << "reading entry " << next_block << endl;
       disk.read(next_block, (uint8_t*)block_content);
-      cout << "read data " << endl;
       strcat(read_data, block_content);
 
       if(next_block != -1){
         next_block = fat[next_block];
       }
-
     }
-    
 
     //Present content
     cout << read_data << endl;
-
     return 0;
 }
-
 
 // ls lists the content in the currect directory (files and sub-directories)
 int
 FS::ls()
-{ 
+{
   for (int i = 0; i < ROOT_SIZE; i++)
       {
         if (dir_entries[i].first_blk != 0)
@@ -272,7 +238,6 @@ FS::cp(std::string sourcepath, std::string destpath)
 
         if (dir_entries[i].file_name == sourcepath)
         {
-          cout << "found file!\n";
           dir_entry_index = i;
           break;
         }
@@ -305,9 +270,7 @@ FS::cp(std::string sourcepath, std::string destpath)
     int next_block = dir_entries[dir_entry_index].first_blk;
     for(int i = 0; i < blocks_to_read; i++)
     {
-      cout << "reading entry " << next_block << endl;
       disk.read(next_block, (uint8_t*)block_content);
-      cout << "read data " << endl;
       strcat(read_data, block_content);
 
       if(next_block != -1)
@@ -327,39 +290,30 @@ FS::cp(std::string sourcepath, std::string destpath)
 
     int size_of_file_temp = size_of_file;
 
-    cout << string_to_eval;
     //insert data into directory entry
 
     // check amount of block
     int num_blocks = size_of_file / BLOCK_SIZE + 1;
 
-    cout << "num blocks: " << num_blocks << "\n";
     int free_spaces[num_blocks];
     int free_space_counter = 0;
-    cout << "Start for loop\n";
     for (int i = 0; i < BLOCK_SIZE/2; i++) {
       // check where the file can fit in the fat
       if (fat[i] == FAT_FREE) {
-        cout << "Free space at: " << i << "\n";
         free_spaces[free_space_counter] = i;
         free_space_counter++;
       }
 
       if (free_space_counter >= num_blocks) {
-        cout << "Found space\n";
         // go back and fill
         start_block = i - free_space_counter + 1;
-        cout << "Start block: " << start_block << "\n";
 
         int elements_in_fat_counter = 1;
         for(int j = start_block; j < start_block + num_blocks; j++) {
-          cout << elements_in_fat_counter << " == "<< free_space_counter; // Breaks pga break nedan i loopen.
           if(elements_in_fat_counter == free_space_counter) {
-            cout << "Setting EOF \n";
             fat[j] = FAT_EOF;
             elements_in_fat_counter++;
           } else {
-            cout << "Adding element in fat " << free_spaces[elements_in_fat_counter-1] << "\n";
             fat[j] = free_spaces[elements_in_fat_counter];
             elements_in_fat_counter++;
           }
@@ -373,29 +327,19 @@ FS::cp(std::string sourcepath, std::string destpath)
           }
           for (int r = 0; r < num_blocks-1; r++)
           {
-            cout << "filling current"<< "\n";
             string block_to_write = string_to_eval.substr(r*BLOCK_SIZE, r*BLOCK_SIZE + BLOCK_SIZE);
             uint8_t* block = (uint8_t*)block_to_write.c_str();
             disk.write(j+r, block);
             size_of_file_temp = size_of_file_temp - BLOCK_SIZE;
-            cout << size_of_file_temp << "\n";
           }
-          cout << "filling leftover"<< "\n";
           string block_to_write = string_to_eval.substr((num_blocks-1)*BLOCK_SIZE, (num_blocks-1)*BLOCK_SIZE + size_of_file_temp);
           uint8_t* block = (uint8_t*)block_to_write.c_str();
           disk.write(j+num_blocks-1, block);
-          cout << "writing to disk\n";
           break;
         }
-
-        cout << "finished to write \n";
         break;
       }
-
     }
-
-    cout << "End loop\n";
-
     struct dir_entry temp_entry;
 
     strcpy(temp_entry.file_name, destpath.c_str());
@@ -408,18 +352,13 @@ FS::cp(std::string sourcepath, std::string destpath)
     // entry to root
     for(int i = 0; i < ROOT_SIZE; i++) {
       if(dir_entries[i].first_blk == 0) {
-        cout << "Empty dir slot in dir array, putting temp array there\n";
         dir_entries[i] = temp_entry;
         break;
       }
-
     }
 
-    cout << "size of temp_entry: " << sizeof(temp_entry) << "\n";
-    cout << "entry_dir lenght: " << sizeof(dir_entries)/ROOT_SIZE << "\n";
     disk.write(ROOT_BLOCK, (uint8_t*)&dir_entries); // dir_entries in the file
     disk.write(FAT_BLOCK, (uint8_t*)&fat); // Fat in the file
-
     return 0;
 }
 
@@ -463,18 +402,15 @@ FS::rm(std::string filepath)
         if(dir_entries[i].size%BLOCK_SIZE > 0) {
           blocks_to_read++;
         }
-        
+
         int curr_block = dir_entries[i].first_blk;
         int index = curr_block;
-        cout << "blocks to remove " << blocks_to_read << endl;
         for (int i = 0; i < blocks_to_read; i++) {
-          cout << "fat[" << curr_block << "] = " << fat[curr_block] << endl;
-          index = curr_block;  
+          index = curr_block;
           if(curr_block != -1){
           curr_block = fat[curr_block];
           }
           fat[index] = FAT_FREE;
-
         }
 
         // Clear dir entry
@@ -485,10 +421,8 @@ FS::rm(std::string filepath)
         temp_entry.type = 0;
         temp_entry.access_rights = 0;
         dir_entries[i] = temp_entry;
-        cout << "Removed \n";
       }
     }
-
     disk.write(ROOT_BLOCK, (uint8_t*)&dir_entries); // dir_entries in the file
     disk.write(FAT_BLOCK, (uint8_t*)&fat); // Fat in the file
 
@@ -515,7 +449,6 @@ FS::append(std::string filepath1, std::string filepath2)
 
         if (dir_entries[i].file_name == filepath1)
         {
-          cout << "found file!\n";
           dir_entry_index_1 = i;
           break;
         }
@@ -534,7 +467,6 @@ FS::append(std::string filepath1, std::string filepath2)
       blocks_to_read_1++;
     }
 
-
     //File 2
     int dir_entry_index_2 = -1;
     char name_array_2[56];
@@ -547,7 +479,6 @@ FS::append(std::string filepath1, std::string filepath2)
 
         if (dir_entries[i].file_name == filepath2)
         {
-          cout << "found file!\n";
           dir_entry_index_2 = i;
           break;
         }
@@ -586,9 +517,7 @@ FS::append(std::string filepath1, std::string filepath2)
     int next_block_1 = dir_entries[dir_entry_index_1].first_blk;
     for(int i = 0; i < blocks_to_read_1; i++)
     {
-      cout << "reading entry " << next_block_1 << endl;
       disk.read(next_block_1, (uint8_t*)block_content_1);
-      cout << "read data " << endl;
       strcat(read_data_1, block_content_1);
 
       if(next_block_1 != -1)
@@ -603,9 +532,7 @@ FS::append(std::string filepath1, std::string filepath2)
     int next_block_2 = dir_entries[dir_entry_index_2].first_blk;
     for(int i = 0; i < blocks_to_read_2; i++)
     {
-      cout << "reading entry " << next_block_2 << endl;
       disk.read(next_block_2, (uint8_t*)block_content_2);
-      cout << "read data " << endl;
       strcat(read_data_2, block_content_2);
 
       if(next_block_2 != -1)
@@ -631,45 +558,31 @@ FS::append(std::string filepath1, std::string filepath2)
     int size_of_file = string_to_eval.length();
     int size_of_file_temp = size_of_file;
 
-    cout << string_to_eval;
     //insert data into directory entry
 
     // check amount of block
     int num_blocks = size_of_file / BLOCK_SIZE + 1;
 
-    // Always 1 atleast
-    // if(num_blocks == 0) {
-    //   num_blocks = 1;
-    //   bool no_block = true;
-    // }
-
-    cout << "num blocks: " << num_blocks << "\n";
     int free_spaces[num_blocks];
     int free_space_counter = 0;
-    cout << "Start for loop\n";
     for (int i = 0; i < BLOCK_SIZE/2; i++) {
       // check where the file can fit in the fat
       if (fat[i] == FAT_FREE) {
-        cout << "Free space at: " << i << "\n";
         free_spaces[free_space_counter] = i;
         free_space_counter++;
       }
 
       if (free_space_counter >= num_blocks) {
-        cout << "Found space\n";
         // go back and fill
         start_block = i - free_space_counter + 1;
-        cout << "Start block: " << start_block << "\n";
 
         int elements_in_fat_counter = 1;
         for(int j = start_block; j < start_block + num_blocks; j++) {
           cout << elements_in_fat_counter << " == "<< free_space_counter; // Breaks pga break nedan i loopen.
           if(elements_in_fat_counter == free_space_counter) {
-            cout << "Setting EOF \n";
             fat[j] = FAT_EOF;
             elements_in_fat_counter++;
           } else {
-            cout << "Adding element in fat " << free_spaces[elements_in_fat_counter-1] << "\n";
             fat[j] = free_spaces[elements_in_fat_counter];
             elements_in_fat_counter++;
           }
@@ -683,29 +596,20 @@ FS::append(std::string filepath1, std::string filepath2)
           }
           for (int r = 0; r < num_blocks-1; r++)
           {
-            cout << "filling current"<< "\n";
             string block_to_write = string_to_eval.substr(r*BLOCK_SIZE, r*BLOCK_SIZE + BLOCK_SIZE);
             uint8_t* block = (uint8_t*)block_to_write.c_str();
             disk.write(j+r, block);
             size_of_file_temp = size_of_file_temp - BLOCK_SIZE;
             cout << size_of_file_temp << "\n";
           }
-          cout << "filling leftover"<< "\n";
           string block_to_write = string_to_eval.substr((num_blocks-1)*BLOCK_SIZE, (num_blocks-1)*BLOCK_SIZE + size_of_file_temp);
           uint8_t* block = (uint8_t*)block_to_write.c_str();
           disk.write(j+num_blocks-1, block);
-          cout << "writing to disk\n";
           break;
         }
-
-        cout << "finished to write \n";
         break;
       }
-
     }
-
-    cout << "End loop\n";
-
     struct dir_entry temp_entry;
 
     strcpy(temp_entry.file_name, filepath2.c_str());
@@ -718,22 +622,15 @@ FS::append(std::string filepath1, std::string filepath2)
     // entry to root
     for(int i = 0; i < ROOT_SIZE; i++) {
       if(dir_entries[i].first_blk == 0) {
-        cout << "Empty dir slot in dir array, putting temp array there\n";
         dir_entries[i] = temp_entry;
         break;
       }
-
     }
-
-    cout << "size of temp_entry: " << sizeof(temp_entry) << "\n";
-    cout << "entry_dir lenght: " << sizeof(dir_entries)/ROOT_SIZE << "\n";
     disk.write(ROOT_BLOCK, (uint8_t*)&dir_entries);  // Can't find this on disk after writing?
 
     return 0;
 }
 
-// mkdir <dirpath> creates a new sub-directory with the name <dirpath>
-// in the current directory
 int
 FS::mkdir(std::string dirpath)
 {
