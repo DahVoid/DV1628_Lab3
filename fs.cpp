@@ -6,8 +6,23 @@
 using namespace std; // Check if used in datorsalen
 
 struct dir_entry dir_entries[ROOT_SIZE];
-char char_dir_path[1][56] = {""};
+char char_dir_path[1][56] = {""}; // gör om till en lista av index emot dir_entries.
 std::vector<std::string> dir_path{""};
+char curr_dir_content[64][56]; // we're already limited to 64 dir_entries 
+
+void init_dir_content(vector path) {
+  // Is root folder
+  if(path.size() == 1){
+    // find all root dir_entries
+    for(int i = 0; i < ROOT_SIZE; ++i){ 
+
+    }
+
+  } else {
+    // Is not root folder
+  }
+
+}
 
 FS::FS()
 {
@@ -298,7 +313,8 @@ FS::cp(std::string sourcepath, std::string destpath)
     cout << "block to read:  "<< blocks_to_read << endl;
     //Get data from file
     //FEEEEEEEEEL start här
-    char block_content[BLOCK_SIZE];
+    char* block_content;
+    block_content = (char*)calloc(BLOCK_SIZE, sizeof(char));
     char* read_data;
     read_data = (char*) calloc(blocks_to_read,BLOCK_SIZE);
     int next_block = dir_entries[dir_entry_index].first_blk;
@@ -720,8 +736,8 @@ FS::mkdir(std::string dirpath)
 
           // write content list to disk
           
-          char content_list[73][56] = {".."}; // Block size / filename size(56) ~ 73
-          uint8_t* block = (uint8_t*)content_list;
+          char temp_dir_content[64][56] = {".."}; //We're already limited to 64 entries.
+          uint8_t* block = (uint8_t*)temp_dir_content;
           disk.write(start_block, block);
 
           // write dir entry list
@@ -764,6 +780,7 @@ FS::cd(std::string new_dir)
     }
 
     dir_path.resize(dir_path.size() - 1);
+
     // get new dir content
     return 0;
   } else {
