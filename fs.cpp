@@ -8,21 +8,21 @@ using namespace std; // Check if used in datorsalen
 struct dir_entry dir_entries[ROOT_SIZE];
 char char_dir_path[1][56] = {""}; // gör om till en lista av index emot dir_entries.
 std::vector<std::string> dir_path{""};
-char curr_dir_content[64][56]; // we're already limited to 64 dir_entries 
+char curr_dir_content[64][56]; // we're already limited to 64 dir_entries
 
-void init_dir_content(vector path) {
-  // Is root folder
-  if(path.size() == 1){
-    // find all root dir_entries
-    for(int i = 0; i < ROOT_SIZE; ++i){ 
+// void init_dir_content(vector path) {
+//   // Is root folder
+//   if(path.size() == 1){
+//     // find all root dir_entries
+//     for(int i = 0; i < ROOT_SIZE; ++i){
+//
+//     }
+//
+//   } else {
+//     // Is not root folder
+//   }
 
-    }
-
-  } else {
-    // Is not root folder
-  }
-
-}
+// }
 
 FS::FS()
 {
@@ -580,8 +580,10 @@ FS::append(std::string filepath1, std::string filepath2)
 
     // *""*""*""*""*"" READ DATA FROM FILES *""*""*""*""*""**
     //file 1
-    char block_content_1[BLOCK_SIZE];
-    char read_data_1[BLOCK_SIZE*blocks_to_read_1];
+    char* block_content_1;
+    block_content_1 = (char*)calloc(BLOCK_SIZE, sizeof(char));
+    char* read_data_1;
+    read_data_1 = (char*) calloc(blocks_to_read_1,BLOCK_SIZE);
     int next_block_1 = dir_entries[dir_entry_index_1].first_blk;
     for(int i = 0; i < blocks_to_read_1; i++)
     {
@@ -595,8 +597,10 @@ FS::append(std::string filepath1, std::string filepath2)
     }
 
     //file 2
-    char block_content_2[BLOCK_SIZE];
-    char read_data_2[BLOCK_SIZE*blocks_to_read_2];
+    char* block_content_2;
+    block_content_2 = (char*)calloc(BLOCK_SIZE, sizeof(char));
+    char* read_data_2;
+    read_data_2 = (char*) calloc(blocks_to_read_2,BLOCK_SIZE);
     int next_block_2 = dir_entries[dir_entry_index_2].first_blk;
     for(int i = 0; i < blocks_to_read_2; i++)
     {
@@ -614,6 +618,7 @@ FS::append(std::string filepath1, std::string filepath2)
 
     // *""*""*""*""*"" REMOVE FILE 2 *""*""*""*""*""**
     rm(filepath2);
+    cout << "Hit kom jag!" << endl;
 
     // *""*""*""*""*"" ADD NEW FILE 2 *""*""*""*""*""**
 
@@ -646,7 +651,7 @@ FS::append(std::string filepath1, std::string filepath2)
 
         int elements_in_fat_counter = 1;
         for(int j = start_block; j < start_block + num_blocks; j++) {
-          cout << elements_in_fat_counter << " == "<< free_space_counter; // Breaks pga break nedan i loopen.
+          // cout << elements_in_fat_counter << " == "<< free_space_counter; // Breaks pga break nedan i loopen.
           if(elements_in_fat_counter == free_space_counter) {
             fat[j] = FAT_EOF;
             elements_in_fat_counter++;
@@ -696,6 +701,10 @@ FS::append(std::string filepath1, std::string filepath2)
     }
     disk.write(ROOT_BLOCK, (uint8_t*)&dir_entries);  // Can't find this on disk after writing?
 
+    free(block_content_1);
+    free(block_content_2);
+    free(read_data_1);
+    free(read_data_2);
     return 0;
 }
 
@@ -719,7 +728,7 @@ FS::mkdir(std::string dirpath)
         if (free_space_counter >= num_blocks) {
           // go back and fill
           start_block = i - free_space_counter + 1;
-          
+
           //set fat values
           int elements_in_fat_counter = 1;
           for(int j = start_block; j < start_block + num_blocks; j++) {
@@ -732,10 +741,10 @@ FS::mkdir(std::string dirpath)
               elements_in_fat_counter++;
             }
           }
-          disk.write(FAT_BLOCK, (uint8_t*)&fat);  
+          disk.write(FAT_BLOCK, (uint8_t*)&fat);
 
           // write content list to disk
-          
+
           char temp_dir_content[64][56] = {".."}; //We're already limited to 64 entries.
           uint8_t* block = (uint8_t*)temp_dir_content;
           disk.write(start_block, block);
@@ -759,12 +768,12 @@ FS::mkdir(std::string dirpath)
             }
 
           }
-          disk.write(ROOT_BLOCK, (uint8_t*)&dir_entries); 
+          disk.write(ROOT_BLOCK, (uint8_t*)&dir_entries);
           break;
         }
       }
     return 0;
-    
+
 }
 
 // cd <dirpath> changes the current (working) directory to the directory named <dirpath>
@@ -810,7 +819,7 @@ FS::pwd()
       output_str.append("/");
     }
 
-    
+
     cout << output_str << std::endl;
     return 0;
 }
