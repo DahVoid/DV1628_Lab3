@@ -1,6 +1,12 @@
 #include <iostream>
 #include <cstdint>
 #include "disk.h"
+#include <vector>
+#include <cstring>
+#include <vector>
+using std::vector;
+using std::string;
+#include <typeinfo>
 
 #ifndef __FS_H__
 #define __FS_H__
@@ -31,7 +37,7 @@ private:
     Disk disk;
     // size of a FAT entry is 2 bytes
     int16_t fat[BLOCK_SIZE/2];
-
+    int init_dir_content(vector<string> path, int* ptr_to_shared_mem);
 public:
     FS();
     ~FS();
