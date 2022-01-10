@@ -3,26 +3,99 @@
 #include <cstring>
 #include <vector>
 #include <typeinfo> // for debugging
-using namespace std; // Check if used in datorsalen
+using namespace std;
 
 struct dir_entry dir_entries[ROOT_SIZE];
-char char_dir_path[1][56] = {""}; // gör om till en lista av index emot dir_entries.
-std::vector<std::string> dir_path{""};
-char curr_dir_content[64][56]; // we're already limited to 64 dir_entries
+vector<string> dir_path{""};
+int curr_dir_content[ROOT_SIZE]; // Array of dir_entries indexes mapping our folder content to the dir_entries array.
 
-// void init_dir_content(vector path) {
-//   // Is root folder
-//   if(path.size() == 1){
-//     // find all root dir_entries
-//     for(int i = 0; i < ROOT_SIZE; ++i){
-//
-//     }
-//
-//   } else {
-//     // Is not root folder
-//   }
+int FS::init_dir_content(std::vector<string> path, int* ptr_to_shared_mem) { // return new dir content array so it can be assigned to temp places as well as global.
 
-// }
+   // Is root folder
+  if(path.size() == 1){
+
+    /*
+    Step 1: Find all folders in dir_entries
+    Step 2: All items that are not part of another folders content must be in root director
+    Step 3: Set orphan entries to current folder
+    */
+  // Get all the folders
+   vector<int>folder_indexes;
+   for(int i = 0; i < ROOT_SIZE; i++) {
+      if(dir_entries[i].type == TYPE_DIR) {
+        folder_indexes.push_back(i);
+      }
+   }
+    // Init is_orphan array
+    int is_orphan[ROOT_SIZE]; // 1 if true for index, 0 if false.
+    for(int i = 0; i < ROOT_SIZE; i++) {
+      is_orphan[i] = 1;
+    }
+
+    // Mark all orphan entries
+    for (int j = 0; j < folder_indexes.size(); j++) {
+      // Read folder dir content
+      int dir_content[ROOT_SIZE];
+    
+      disk.read(dir_entries[folder_indexes[j]].first_blk, (uint8_t*)dir_content);
+      cout << "read disk \n";
+
+      for (int k = 0; k < ROOT_SIZE; k++) {
+        if(dir_content[k] == -1){ // TODO: REPLACE -1 with PARENT ID
+          // -1 is also temp to reference parent folder (:
+          continue;
+        }
+        is_orphan[dir_content[k]] = 0;
+        cout << "set orphan \n";
+      }
+    }
+
+
+
+    cout << "set all orphan entries to target \n";
+    for (int i = 0; i < ROOT_SIZE; i++) {
+      cout << is_orphan[i] << endl;
+    }
+    cout << "finished printing orphans \n";
+    // Set all orphans to target entry
+
+    // reset target array
+    int target_dir_content[64];
+    for(int i = 0; i < ROOT_SIZE; i++) {
+      target_dir_content[i] = -1;
+    }
+
+    int counter = 0;
+    for(int i = 0; i < ROOT_SIZE; i++) {
+
+      if(is_orphan[i] == 1 && dir_entries[i].size > 0) {
+        cout <<"Orphaned file with size: " << dir_entries[i].size;
+        cout << dir_entries[i].first_blk << endl;
+        target_dir_content[counter] = i;
+        
+        counter++;
+      }
+    }
+    // Save to memory
+    for(int i = 0; i < ROOT_SIZE; i++) {
+      ptr_to_shared_mem[i] = target_dir_content[i];
+    }
+    cout <<"dun init" << "\n";
+    
+    return 0;
+   } else {
+    /* if not root folder
+    Step 1: Navigate to root folder
+    Step 2: Naviagte accord to path vector
+    Step 3 Load content from folder block 
+    
+    std::vector<std::string> root_path{""};
+    int navigation_dir[ROOT_SIZE];
+    init_dir_content(root_path, navigation_dir);
+    return 0;*/
+   }
+
+ }
 
 FS::FS()
 {
@@ -36,6 +109,25 @@ FS::FS()
     // Confirm that read properly reads the FAT block
     int checkIfDataSaved = fat[ROOT_BLOCK];
     cout << "-- Finished booting -- \n";
+
+    // Init root dir content
+    for(int i = 0; i < ROOT_SIZE; i++) {
+      curr_dir_content[i] = -1;
+    }
+    int* ptr = (int*)calloc(ROOT_SIZE, sizeof(int));
+    cout << "-- Starting init of root dir \n";
+    init_dir_content(dir_path, ptr);
+    for(int i = 0; i < ROOT_SIZE; i++) {
+      curr_dir_content[i] = ptr[i];
+    }
+
+    cout << "-- Dun init folders -- \n";
+    for(int i = 0; i < ROOT_SIZE/4; i++) {
+      if( curr_dir_content[i] == -1) {
+        continue;
+      }
+      cout << "Curr dir content: " << curr_dir_content[i] << "\n";
+    }
 
 }
 
@@ -732,7 +824,6 @@ FS::mkdir(std::string dirpath)
           //set fat values
           int elements_in_fat_counter = 1;
           for(int j = start_block; j < start_block + num_blocks; j++) {
-            cout << elements_in_fat_counter << " == "<< free_space_counter; //
             if(elements_in_fat_counter == free_space_counter) {
               fat[j] = FAT_EOF;
               elements_in_fat_counter++;
@@ -745,16 +836,22 @@ FS::mkdir(std::string dirpath)
 
           // write content list to disk
 
-          char temp_dir_content[64][56] = {".."}; //We're already limited to 64 entries.
-          uint8_t* block = (uint8_t*)temp_dir_content;
-          disk.write(start_block, block);
+          int temp_dir_content[ROOT_SIZE] = {-1}; // TODO ADD PARENT INDEX FIRST
+          for(int i = 0; i < ROOT_SIZE; i++) {
+            temp_dir_content[i] = -1;
+          }
+          for(int i = 0; i < ROOT_SIZE; i++) {
+            cout << temp_dir_content[i] << endl;
+          }
+
+          disk.write(start_block,  (uint8_t*)&temp_dir_content);
 
           // write dir entry list
           struct dir_entry temp_entry;
 
           strcpy(temp_entry.file_name, dirpath.c_str());
 
-          temp_entry.size = 0;
+          temp_entry.size = sizeof(temp_dir_content);
           temp_entry.first_blk = start_block;
           temp_entry.type = TYPE_DIR;
           temp_entry.access_rights = READ;
@@ -763,6 +860,7 @@ FS::mkdir(std::string dirpath)
           //find empty slot in dir entries
           for(int i = 0; i < ROOT_SIZE; i++) {
             if(dir_entries[i].first_blk == 0) {
+              cout <<"Dir located at index " << i << endl;
               dir_entries[i] = temp_entry;
               break;
             }
@@ -832,6 +930,13 @@ FS::chmod(std::string accessrights, std::string filepath)
     std::cout << "FS::chmod(" << accessrights << "," << filepath << ")\n";
     for (int i = 0; i < 64 ; i++){
       cout << "fat[" << i << "] = " << fat[i] << "\n";
+    }
+
+    for (int i = 0; i < 64 ; i++){
+      if(dir_entries[i].first_blk < 0 || dir_entries[i].first_blk > ROOT_SIZE){
+        continue;
+      }
+      cout << "dir_entry[" << i << "] = " << dir_entries[i].file_name << "\n";
     }
 
     return 0;
