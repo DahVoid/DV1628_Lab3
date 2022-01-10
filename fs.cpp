@@ -9,7 +9,7 @@ struct dir_entry dir_entries[ROOT_SIZE];
 vector<string> dir_path{""};
 int curr_dir_content[ROOT_SIZE]; // Array of dir_entries indexes mapping our folder content to the dir_entries array.
 
-int FS::init_dir_content(std::vector<string> path, int* ptr_to_shared_mem) { // return new dir content array so it can be assigned to temp places as well as global.
+int * FS::init_dir_content(std::vector<string> path, int* ptr_to_shared_mem) { // return new dir content array so it can be assigned to temp places as well as global.
 
    // Is root folder
   if(path.size() == 1){
@@ -20,10 +20,12 @@ int FS::init_dir_content(std::vector<string> path, int* ptr_to_shared_mem) { // 
     Step 3: Set orphan entries to current folder
     */
   // Get all the folders
-   vector<int>folder_indexes;
+   int folder_indexes[ROOT_SIZE];
+   int folder_index_counter = 0;
    for(int i = 0; i < ROOT_SIZE; i++) {
       if(dir_entries[i].type == TYPE_DIR) {
-        folder_indexes.push_back(i);
+        folder_indexes[folder_index_counter] = i;
+        folder_index_counter++;
       }
    }
     // Init is_orphan array
@@ -33,34 +35,23 @@ int FS::init_dir_content(std::vector<string> path, int* ptr_to_shared_mem) { // 
     }
 
     // Mark all orphan entries
-    for (int j = 0; j < folder_indexes.size(); j++) {
+    for (int i = 0; i < folder_index_counter; i++) {
       // Read folder dir content
-      int dir_content[ROOT_SIZE];
+      int* dir_content = (int*)calloc(BLOCK_SIZE, sizeof(char));
     
-      disk.read(dir_entries[folder_indexes[j]].first_blk, (uint8_t*)dir_content);
-      cout << "read disk \n";
+      disk.read(dir_entries[folder_indexes[i]].first_blk, (uint8_t*)dir_content);
 
-      for (int k = 0; k < ROOT_SIZE; k++) {
-        if(dir_content[k] == -1){ // TODO: REPLACE -1 with PARENT ID
+      for (int j = 0; j < ROOT_SIZE; j++) {
+        if(dir_content[j] == -1){ // TODO: REPLACE -1 with PARENT ID
           // -1 is also temp to reference parent folder (:
           continue;
         }
-        is_orphan[dir_content[k]] = 0;
-        cout << "set orphan \n";
+        is_orphan[dir_content[i]] = 0;
       }
     }
-
-
-
-    cout << "set all orphan entries to target \n";
-    for (int i = 0; i < ROOT_SIZE; i++) {
-      cout << is_orphan[i] << endl;
-    }
-    cout << "finished printing orphans \n";
     // Set all orphans to target entry
-
     // reset target array
-    int target_dir_content[64];
+    int* target_dir_content = (int*)calloc(ROOT_SIZE, sizeof(int));
     for(int i = 0; i < ROOT_SIZE; i++) {
       target_dir_content[i] = -1;
     }
@@ -68,22 +59,27 @@ int FS::init_dir_content(std::vector<string> path, int* ptr_to_shared_mem) { // 
     int counter = 0;
     for(int i = 0; i < ROOT_SIZE; i++) {
 
-      if(is_orphan[i] == 1 && dir_entries[i].size > 0) {
-        cout <<"Orphaned file with size: " << dir_entries[i].size;
-        cout << dir_entries[i].first_blk << endl;
+      if(is_orphan[i] == 1) {
+        //cout <<"dir_entry with size: " << dir_entries[i].size << endl;
+        if (dir_entries[i].size > 0)
+        {
         target_dir_content[counter] = i;
         
         counter++;
+        }
       }
     }
+    static int return_value[ROOT_SIZE];
     // Save to memory
     for(int i = 0; i < ROOT_SIZE; i++) {
-      ptr_to_shared_mem[i] = target_dir_content[i];
+      return_value[i] = target_dir_content[i];
     }
-    cout <<"dun init" << "\n";
-    
-    return 0;
-   } else {
+
+    for(int i = 0; i < ROOT_SIZE/8; i++) {
+      cout << return_value[i] << endl;
+    }
+    return return_value;
+   }  else {
     /* if not root folder
     Step 1: Navigate to root folder
     Step 2: Naviagte accord to path vector
@@ -94,7 +90,7 @@ int FS::init_dir_content(std::vector<string> path, int* ptr_to_shared_mem) { // 
     init_dir_content(root_path, navigation_dir);
     return 0;*/
    }
-
+ 
  }
 
 FS::FS()
@@ -116,12 +112,14 @@ FS::FS()
     }
     int* ptr = (int*)calloc(ROOT_SIZE, sizeof(int));
     cout << "-- Starting init of root dir \n";
-    init_dir_content(dir_path, ptr);
+    ptr = init_dir_content(dir_path, ptr);
+    cout <<"123"<< endl;
+    
     for(int i = 0; i < ROOT_SIZE; i++) {
-      curr_dir_content[i] = ptr[i];
+      //curr_dir_content[i] = ptr[i];
     }
 
-    cout << "-- Dun init folders -- \n";
+    //cout << "-- Dun init folders -- \n";
     for(int i = 0; i < ROOT_SIZE/4; i++) {
       if( curr_dir_content[i] == -1) {
         continue;

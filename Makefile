@@ -10,7 +10,7 @@ shell.o: shell.cpp shell.h fs.h disk.h
 	$(GCC) -std=c++11 -O2 -c shell.cpp
 
 fs.o: fs.cpp fs.h disk.h
-	$(GCC) -std=c++11 -O2 -c fs.cpp
+	$(GCC) -std=c++11 -O2 -c fs.cpp -fno-stack-protector
 
 disk.o: disk.cpp disk.h
 	$(GCC) -std=c++11 -O2 -c disk.cpp
