@@ -27,6 +27,30 @@ int FS::file_fit_check(int num_blocks)
   return 0;
 }
 
+int FS::get_parent_index()
+{
+  cout << "Entering get parent" << endl;
+  // set path to parent path
+  vector<string> temp_path = dir_path; 
+  string current_filename = temp_path[temp_path.size() - 1];
+  temp_path.resize(temp_path.size() - 1);
+  int* ptr = (int*)calloc(ROOT_SIZE, sizeof(int));
+  ptr = init_dir_content(temp_path);
+
+  if(temp_path.size() == 0){
+    // Parent is root
+    cout << "Parent is Root!" << endl;
+    return -2;
+  }
+
+  for (int i = 0; i < ROOT_SIZE; i++) {
+    if(dir_entries[ptr[i]].file_name == current_filename.c_str()) {
+      cout << "Parent is: " << ptr[i] << endl;
+      return ptr[i];
+    }
+  }
+}
+
 int * FS::init_dir_content(std::vector<string> path) { // return new dir content array so it can be assigned to temp places as well as global.
 
    // Is root folder
@@ -129,10 +153,12 @@ int * FS::init_dir_content(std::vector<string> path) { // return new dir content
         navigated_path.push_back(dir_entries[ptr[j]].file_name);
 
         if (j == ROOT_SIZE - 1) {
-          cout <<"Can't find a directory the path is pointing to" << endl;;
-          return;
+          cout <<"Can't find a directory the path is pointing to" << endl;
+          int* fail;
+          fail[0] = -1337;
+          return fail;
         } 
-        
+
       }
     }
     return ptr;
@@ -999,7 +1025,11 @@ FS::mkdir(std::string dirpath)
 
           // write content list to disk
 
-          int temp_dir_content[ROOT_SIZE] = {-1}; // TODO ADD PARENT INDEX FIRST
+          int temp_dir_content[ROOT_SIZE];
+          // Get parent index 
+          temp_dir_content[0] = get_parent_index();
+          
+          // TODO ADD PARENT INDEX FIRST
           for(int i = 0; i < ROOT_SIZE; i++) {
             temp_dir_content[i] = -1;
           }
