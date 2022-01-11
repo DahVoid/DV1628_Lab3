@@ -27,7 +27,7 @@ int FS::file_fit_check(int num_blocks)
   return 0;
 }
 
-int * FS::init_dir_content(std::vector<string> path, int* ptr_to_shared_mem) { // return new dir content array so it can be assigned to temp places as well as global.
+int * FS::init_dir_content(std::vector<string> path) { // return new dir content array so it can be assigned to temp places as well as global.
 
    // Is root folder
   if(path.size() == 1){
@@ -102,11 +102,35 @@ int * FS::init_dir_content(std::vector<string> path, int* ptr_to_shared_mem) { /
     Step 1: Navigate to root folder
     Step 2: Naviagte accord to path vector
     Step 3 Load content from folder block
+    */
+    std::vector<std::string> navigated_path{""};
+    int* navigation_dir;
 
-    std::vector<std::string> root_path{""};
-    int navigation_dir[ROOT_SIZE];
-    init_dir_content(root_path, navigation_dir);
-    return 0;*/
+    cout << "Navigated to root " << endl;
+    int* ptr = (int*)calloc(ROOT_SIZE, sizeof(int));
+    ptr = init_dir_content(navigated_path);
+
+    cout << "path size: " << path.size() << endl;
+    // For each dir in path
+    for (int i = 1; i < path.size(); i++) { // starting at 1 since we dont want to look at root again.
+      cout << "navigated_path size: " << navigated_path.size() << endl;
+      // find next directory in current dirs content
+      for(int j = 0; j < ROOT_SIZE; j++) {
+        if( dir_entries[ptr[j]].file_name == path[i]) {
+          
+          navigation_dir = (int*)calloc(BLOCK_SIZE, sizeof(char));
+          disk.read(dir_entries[ptr[j]].first_blk, (uint8_t*)navigation_dir);
+          cout << "printing navigation dir" << endl;
+          for (int k = 0; k < ROOT_SIZE; k++){
+            ptr[k] = navigation_dir[k];
+          }
+          break;
+        }
+        navigated_path.push_back(dir_entries[ptr[j]].file_name);
+      }
+    }
+    return ptr;
+
    }
 
  }
@@ -128,21 +152,13 @@ FS::FS()
     for(int i = 0; i < ROOT_SIZE; i++) {
       curr_dir_content[i] = -1;
     }
+
+    // Set the root folder
     int* ptr = (int*)calloc(ROOT_SIZE, sizeof(int));
     cout << "-- Starting init of root dir \n";
-    ptr = init_dir_content(dir_path, ptr);
-    cout <<"123"<< endl;
-
+    ptr = init_dir_content(dir_path);
     for(int i = 0; i < ROOT_SIZE; i++) {
-      //curr_dir_content[i] = ptr[i];
-    }
-
-    //cout << "-- Dun init folders -- \n";
-    for(int i = 0; i < ROOT_SIZE/4; i++) {
-      if( curr_dir_content[i] == -1) {
-        continue;
-      }
-      cout << "Curr dir content: " << curr_dir_content[i] << "\n";
+      curr_dir_content[i] = ptr[i];
     }
 
 }
@@ -1001,12 +1017,24 @@ FS::cd(std::string new_dir)
     }
 
     dir_path.resize(dir_path.size() - 1);
+    // Set new folder dir content
+    int* ptr = (int*)calloc(ROOT_SIZE, sizeof(int));
+    ptr = init_dir_content(dir_path);
+    for(int i = 0; i < ROOT_SIZE; i++) {
+      curr_dir_content[i] = ptr[i];
+    }
 
     // get new dir content
     return 0;
   } else {
     dir_path.push_back(new_dir);
-     // get new dir content
+
+    // Set new folder dir content
+    int* ptr = (int*)calloc(ROOT_SIZE, sizeof(int));
+    ptr = init_dir_content(dir_path);
+    for(int i = 0; i < ROOT_SIZE; i++) {
+      curr_dir_content[i] = ptr[i];
+    }
     return 0;
   }
     cout << "directory not found" << endl;
