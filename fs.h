@@ -38,6 +38,7 @@ private:
     // size of a FAT entry is 2 bytes
     int16_t fat[BLOCK_SIZE/2];
     int * init_dir_content(vector<string> path, int* ptr_to_shared_mem);
+    int file_fit_check(int num_blocks);
 public:
     FS();
     ~FS();

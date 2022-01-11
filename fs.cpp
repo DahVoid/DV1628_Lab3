@@ -9,6 +9,24 @@ struct dir_entry dir_entries[ROOT_SIZE];
 vector<string> dir_path{""};
 int curr_dir_content[ROOT_SIZE]; // Array of dir_entries indexes mapping our folder content to the dir_entries array.
 
+int FS::file_fit_check(int num_blocks)
+{
+  int found_blocks = 0;
+  for (int i = 0; i < 64; i++)
+  {
+    if (fat[i] == 0)
+    {
+      found_blocks++;
+    }
+
+    if (found_blocks == num_blocks)
+    {
+      return 1;
+    }
+  }
+  return 0;
+}
+
 int * FS::init_dir_content(std::vector<string> path, int* ptr_to_shared_mem) { // return new dir content array so it can be assigned to temp places as well as global.
 
    // Is root folder
@@ -38,7 +56,7 @@ int * FS::init_dir_content(std::vector<string> path, int* ptr_to_shared_mem) { /
     for (int i = 0; i < folder_index_counter; i++) {
       // Read folder dir content
       int* dir_content = (int*)calloc(BLOCK_SIZE, sizeof(char));
-    
+
       disk.read(dir_entries[folder_indexes[i]].first_blk, (uint8_t*)dir_content);
 
       for (int j = 0; j < ROOT_SIZE; j++) {
@@ -64,7 +82,7 @@ int * FS::init_dir_content(std::vector<string> path, int* ptr_to_shared_mem) { /
         if (dir_entries[i].size > 0)
         {
         target_dir_content[counter] = i;
-        
+
         counter++;
         }
       }
@@ -83,14 +101,14 @@ int * FS::init_dir_content(std::vector<string> path, int* ptr_to_shared_mem) { /
     /* if not root folder
     Step 1: Navigate to root folder
     Step 2: Naviagte accord to path vector
-    Step 3 Load content from folder block 
-    
+    Step 3 Load content from folder block
+
     std::vector<std::string> root_path{""};
     int navigation_dir[ROOT_SIZE];
     init_dir_content(root_path, navigation_dir);
     return 0;*/
    }
- 
+
  }
 
 FS::FS()
@@ -114,7 +132,7 @@ FS::FS()
     cout << "-- Starting init of root dir \n";
     ptr = init_dir_content(dir_path, ptr);
     cout <<"123"<< endl;
-    
+
     for(int i = 0; i < ROOT_SIZE; i++) {
       //curr_dir_content[i] = ptr[i];
     }
@@ -208,6 +226,14 @@ FS::create(std::string filepath)
     if (size_of_file==BLOCK_SIZE*num_blocks_temp)
     {
       num_blocks = num_blocks_temp;
+    }
+
+    int fitcheck = file_fit_check(num_blocks);
+
+    if (fitcheck == 0)
+    {
+      cout << "File too large!\n";
+      return 0;
     }
 
     int free_spaces[num_blocks];
@@ -418,6 +444,14 @@ FS::cp(std::string sourcepath, std::string destpath)
     if (dir_entries[dir_entry_index].size==BLOCK_SIZE*blocks_to_read_temp)
     {
       blocks_to_read_temp = blocks_to_read_temp;
+    }
+
+    int fitcheck = file_fit_check(blocks_to_read);
+
+    if (fitcheck == 0)
+    {
+      cout << "File too large!\n";
+      return 0;
     }
 
     //GET FILE information
@@ -754,9 +788,6 @@ FS::append(std::string filepath1, std::string filepath2)
     // *""*""*""*""*"" APPEND DATA *""*""*""*""*""**
     strcat(read_data_2, read_data_1);
 
-    // *""*""*""*""*"" REMOVE FILE 2 *""*""*""*""*""**
-    rm(filepath2);
-
     // *""*""*""*""*"" ADD NEW FILE 2 *""*""*""*""*""**
 
     //get file size
@@ -778,6 +809,17 @@ FS::append(std::string filepath1, std::string filepath2)
     {
       num_blocks = num_blocks_temp;
     }
+
+    int fitcheck = file_fit_check(num_blocks);
+
+    if (fitcheck == 0)
+    {
+      cout << "File too large!\n";
+      return 0;
+    }
+
+    // *""*""*""*""*"" REMOVE FILE 2 *""*""*""*""*""**
+    rm(filepath2);
 
     int free_spaces[num_blocks];
     int free_space_counter = 0;
@@ -870,6 +912,14 @@ FS::mkdir(std::string dirpath)
     std::cout << "FS::mkdir(" << dirpath << ")\n";
     int start_block;
     int num_blocks = 1;
+
+    int fitcheck = file_fit_check(num_blocks);
+
+    if (fitcheck == 0)
+    {
+      cout << "Disk full!\n";
+      return 0;
+    }
 
     int free_spaces[num_blocks];
     int free_space_counter = 0;
@@ -992,15 +1042,27 @@ int
 FS::chmod(std::string accessrights, std::string filepath)
 {
     std::cout << "FS::chmod(" << accessrights << "," << filepath << ")\n";
-    for (int i = 0; i < 64 ; i++){
-      cout << "fat[" << i << "] = " << fat[i] << "\n";
+    // for (int i = 0; i < 64 ; i++){
+    //   cout << "fat[" << i << "] = " << fat[i] << "\n";
+    // }
+    //
+    // for (int i = 0; i < 64 ; i++){
+    //   if(dir_entries[i].first_blk < 0 || dir_entries[i].first_blk > ROOT_SIZE){
+    //     continue;
+    //   }
+    //   cout << "dir_entry[" << i << "] = " << dir_entries[i].file_name << "\n";
+    // }
+    cout << "current directory: \n";
+    for (int i = 0; i < dir_path.size(); i++)
+    {
+      cout << "file " << i << ": " << dir_path[i] << "\n";
     }
 
-    for (int i = 0; i < 64 ; i++){
-      if(dir_entries[i].first_blk < 0 || dir_entries[i].first_blk > ROOT_SIZE){
-        continue;
-      }
-      cout << "dir_entry[" << i << "] = " << dir_entries[i].file_name << "\n";
+    cout << "\n";
+
+    for (int i = 0; i < ROOT_SIZE; i++)
+    {
+      cout << "file " << i << ": " << curr_dir_content[i] << "\n";
     }
 
     return 0;
