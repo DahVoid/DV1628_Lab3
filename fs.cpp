@@ -105,7 +105,7 @@ int * FS::init_dir_content(std::vector<string> path) { // return new dir content
     */
     std::vector<std::string> navigated_path{""};
     int* navigation_dir;
-
+    int cantFindFolder = 0;
     cout << "Navigated to root " << endl;
     int* ptr = (int*)calloc(ROOT_SIZE, sizeof(int));
     ptr = init_dir_content(navigated_path);
@@ -127,11 +127,18 @@ int * FS::init_dir_content(std::vector<string> path) { // return new dir content
           break;
         }
         navigated_path.push_back(dir_entries[ptr[j]].file_name);
+
+        if (j == ROOT_SIZE - 1) {
+          cout <<"Can't find a directory the path is pointing to" << endl;;
+          return;
+        } 
+        
       }
     }
     return ptr;
 
    }
+
 
  }
 
@@ -197,6 +204,11 @@ FS::format()
 
     fat[FAT_BLOCK] = FAT_EOF;
     disk.write(FAT_BLOCK, (uint8_t*)&fat); // Fat in the file
+
+    // Init root dir content
+    for(int i = 0; i < ROOT_SIZE; i++) {
+      curr_dir_content[i] = -1;
+    }
     std::cout << "FS::format()\n";
     return 0;
 }
@@ -994,6 +1006,8 @@ FS::mkdir(std::string dirpath)
           for(int i = 0; i < ROOT_SIZE; i++) {
             cout << temp_dir_content[i] << endl;
           }
+          
+
 
           disk.write(start_block,  (uint8_t*)&temp_dir_content);
 
@@ -1010,7 +1024,6 @@ FS::mkdir(std::string dirpath)
           vector<string> path = dir_path;
           path.push_back(temp_entry.file_name);
 
-          init_dir_content(path);
 
 
           // dir_entry to root block
