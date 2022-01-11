@@ -153,12 +153,12 @@ FS::FS()
       curr_dir_content[i] = -1;
     }
 
-    // Set the root folder
+        // Set the root folder
     int* ptr = (int*)calloc(ROOT_SIZE, sizeof(int));
     cout << "-- Starting init of root dir \n";
     ptr = init_dir_content(dir_path);
     for(int i = 0; i < ROOT_SIZE; i++) {
-      curr_dir_content[i] = ptr[i];
+       curr_dir_content[i] = ptr[i];
     }
 
 }
@@ -326,6 +326,11 @@ FS::create(std::string filepath)
     temp_entry.type = TYPE_FILE;
     temp_entry.access_rights = READ;
 
+    vector<string> path = dir_path;
+    path.push_back(temp_entry.file_name);
+
+    init_dir_content(path);
+
     // dir_entry to root
     for(int i = 0; i < ROOT_SIZE; i++) {
       if(dir_entries[i].first_blk == 0) {
@@ -405,15 +410,24 @@ FS::cat(std::string filepath)
 int
 FS::ls()
 {
-  for (int i = 0; i < ROOT_SIZE; i++)
+  int dir_size = 0;
+  for (int i = 0; i < 64; i++)
+  {
+      if (curr_dir_content[i] != -1)
       {
-        if (dir_entries[i].first_blk != 0)
+        dir_size++;
+      }
+  }
+
+  for (int i = 0; i < dir_size; i++)
+      {
+        if (dir_entries[curr_dir_content[i]].first_blk != 0)
         {
           cout << dir_entries[i].file_name << "                     " << dir_entries[i].size << "\n";
         }
       }
 
-    return 0;
+  return 0;
 }
 
 // cp <sourcepath> <destpath> makes an exact copy of the file
@@ -582,6 +596,11 @@ FS::cp(std::string sourcepath, std::string destpath)
     temp_entry.type = type;
     temp_entry.access_rights = access_rights;
 
+    vector<string> path = dir_path;
+    path.push_back(temp_entry.file_name);
+
+    init_dir_content(path);
+
     // entry to root
     for(int i = 0; i < ROOT_SIZE; i++) {
       if(dir_entries[i].first_blk == 0) {
@@ -630,6 +649,8 @@ int
 FS::rm(std::string filepath)
 {
     std::cout << "FS::rm(" << filepath << ")\n";
+
+    // TODO REMOVE FROM DIR_CONTENT
 
     int name_found = 0;
 
@@ -986,6 +1007,12 @@ FS::mkdir(std::string dirpath)
           temp_entry.type = TYPE_DIR;
           temp_entry.access_rights = READ;
 
+          vector<string> path = dir_path;
+          path.push_back(temp_entry.file_name);
+
+          init_dir_content(path);
+
+
           // dir_entry to root block
           //find empty slot in dir entries
           for(int i = 0; i < ROOT_SIZE; i++) {
@@ -1017,7 +1044,7 @@ FS::cd(std::string new_dir)
     }
 
     dir_path.resize(dir_path.size() - 1);
-    // Set new folder dir content
+        // Set new folder dir content
     int* ptr = (int*)calloc(ROOT_SIZE, sizeof(int));
     ptr = init_dir_content(dir_path);
     for(int i = 0; i < ROOT_SIZE; i++) {
@@ -1070,6 +1097,8 @@ int
 FS::chmod(std::string accessrights, std::string filepath)
 {
     std::cout << "FS::chmod(" << accessrights << "," << filepath << ")\n";
+
+    //DEBUGGING
     // for (int i = 0; i < 64 ; i++){
     //   cout << "fat[" << i << "] = " << fat[i] << "\n";
     // }
@@ -1092,6 +1121,14 @@ FS::chmod(std::string accessrights, std::string filepath)
     {
       cout << "file " << i << ": " << curr_dir_content[i] << "\n";
     }
+
+    //ACTUAL CODE
+    int file_index = -1;
+    for (int i = 0; i < 64; i++)
+    {
+
+    }
+
 
     return 0;
 }
