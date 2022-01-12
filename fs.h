@@ -39,7 +39,8 @@ private:
     int16_t fat[BLOCK_SIZE/2];
     int * init_dir_content(vector<string> path);
     int file_fit_check(int num_blocks);
-    int get_parent_index();
+    int get_parent_index(vector<string> path);
+    void save_curr_dir();
 public:
     FS();
     ~FS();
