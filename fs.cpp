@@ -30,7 +30,7 @@ int FS::file_fit_check(int num_blocks)
 
 int FS::get_parent_index(std::vector<string> path)
 {
-  cout << "Entering get parent" << endl;
+  // cout << "Entering get parent" << endl;
   // set path to parent path
   vector<string> temp_path = path;
   string current_filename = temp_path[temp_path.size() - 1];
@@ -40,7 +40,7 @@ int FS::get_parent_index(std::vector<string> path)
 
   if(temp_path.size() == 0){
     // Parent is root
-    cout << "Parent is Root!" << endl;
+    // cout << "Parent is Root!" << endl;
     return -2;
   }
 
@@ -48,7 +48,7 @@ int FS::get_parent_index(std::vector<string> path)
   {
     string filename_temp = dir_entries[ptr[i]].file_name;
     if(filename_temp == current_filename.c_str()) {
-      cout << "Parent is: " << ptr[i] << endl;
+      // cout << "Parent is: " << ptr[i] << endl;
       return ptr[i];
     }
   }
@@ -84,7 +84,7 @@ int * FS::init_dir_content(std::vector<string> path) { // return new dir content
         folder_index_counter++;
       }
    }
-   cout << "folder_index_counter: " << folder_index_counter << "\n";
+  //  cout << "folder_index_counter: " << folder_index_counter << "\n";
 
 
   //  //Nytt
@@ -167,21 +167,21 @@ int * FS::init_dir_content(std::vector<string> path) { // return new dir content
     std::vector<std::string> navigated_path{""};
     int* navigation_dir;
     int cantFindFolder = 0;
-    cout << "Navigated to root " << endl;
+    // cout << "Navigated to root " << endl;
     int* ptr = (int*)calloc(ROOT_SIZE, sizeof(int));
     ptr = init_dir_content(navigated_path);
 
-    cout << "path size: " << path.size() << endl;
+    // cout << "path size: " << path.size() << endl;
     // For each dir in path
     for (int i = 1; i < path.size(); i++) { // starting at 1 since we dont want to look at root again.
-      cout << "navigated_path size: " << navigated_path.size() << endl;
+      // cout << "navigated_path size: " << navigated_path.size() << endl;
       // find next directory in current dirs content
       for(int j = 0; j < ROOT_SIZE; j++) {
         if( dir_entries[ptr[j]].file_name == path[i]) {
 
           navigation_dir = (int*)calloc(BLOCK_SIZE, sizeof(char));
           disk.read(dir_entries[ptr[j]].first_blk, (uint8_t*)navigation_dir);
-          cout << "printing navigation dir" << endl;
+          // cout << "printing navigation dir" << endl;
           for (int k = 0; k < ROOT_SIZE; k++){
             ptr[k] = navigation_dir[k];
           }
@@ -223,19 +223,19 @@ void FS::save_curr_dir()
     parent_id = get_parent_index(dir_path);
   }
 
-  cout <<  "dir_block: " << dir_entries[parent_id].first_blk << "\n";
+  // cout <<  "dir_block: " << dir_entries[parent_id].first_blk << "\n";
   int* parent_dir_content = (int*)calloc(ROOT_SIZE, sizeof(int));
   disk.read(dir_entries[parent_id].first_blk, (uint8_t*)parent_dir_content);
-  cout << "shit i gotz here ";
+  // cout << "shit i gotz here ";
   for(int i = 0; i < ROOT_SIZE; i++){
 
     if(dir_entries[parent_dir_content[i]].file_name == dir_path.back())
     {
-      cout << "i gotz here \n";
+      // cout << "i gotz here \n";
        curr_dir_id = parent_dir_content[i];
     }
   }
-  cout <<  "dir_block: " << dir_entries[curr_dir_id].first_blk << "\n";
+  // cout <<  "dir_block: " << dir_entries[curr_dir_id].first_blk << "\n";
   disk.write(dir_entries[curr_dir_id].first_blk, (uint8_t*)curr_dir_content);
   return;
 }
@@ -439,7 +439,7 @@ FS::create(std::string filepath)
     //   curr_dir_content[i] = ptr[i];
     // }
 
-
+    // cout << "1\n";
     strcpy(temp_entry.file_name, filepath.c_str());
 
     temp_entry.size = size_of_file;
@@ -458,7 +458,7 @@ FS::create(std::string filepath)
         break;
       }
     }
-
+    // cout << "2\n";
     int i;
 
     if (dir_path.size() == 1)
@@ -475,14 +475,14 @@ FS::create(std::string filepath)
     {
       if (curr_dir_content[i] == -1)
       {
-        cout << "curr_dir_content[i]: " << curr_dir_content[i] << "\n";
-        cout << "dir_entry_index " << dir_entry_index << "\n";
+        // cout << "curr_dir_content[i]: " << curr_dir_content[i] << "\n";
+        // cout << "dir_entry_index " << dir_entry_index << "\n";
 
         curr_dir_content[i] = dir_entry_index;
         break;
       }
     }
-
+    // cout << "3\n";
     //debugging
     // for (int i = 0; i < ROOT_SIZE; i++)
     // {
@@ -502,22 +502,27 @@ FS::create(std::string filepath)
       return 0;
     }
 
+    //REMOVING THIS PRINT CAUSES THE CODE TO SEGFAULT
+    /**DONT TOUCH**/ cout << endl; //DONT TOUCH
+    //REMOVING THIS PRINT CAUSES THE CODE TO SEGFAULT
+
     if (dir_path.size() != 1)
     {
       int curr_dir_id;
       int* parent_dir_content = (int*)calloc(ROOT_SIZE, sizeof(int));
       disk.read(dir_entries[parent_id].first_blk, (uint8_t*)parent_dir_content);
 
-      cout << "shit i gotz here ";
+      // cout << "shit i gotz here ";
       for(int i = 0; i < ROOT_SIZE; i++){
 
         if(dir_entries[parent_dir_content[i]].file_name == dir_path.back())
         {
-          cout << "i gotz here \n";
-           curr_dir_id = parent_dir_content[i];
+          // cout << "i gotz here \n";
+          curr_dir_id = parent_dir_content[i];
+          break;
         }
       }
-      cout <<  "dir_block: " << dir_entries[curr_dir_id].first_blk << "\n";
+      // cout <<  "dir_block: " << dir_entries[curr_dir_id].first_blk << "\n";
       disk.write(dir_entries[curr_dir_id].first_blk, (uint8_t*)curr_dir_content);
     }
 
@@ -683,7 +688,7 @@ FS::cp(std::string sourcepath, std::string destpath)
     uint8_t type = dir_entries[dir_entry_index].type;
     uint8_t access_rights = dir_entries[dir_entry_index].access_rights;
 
-    cout << "1 \n";
+    // cout << "1 \n";
 
     //Get data from file
     //FEEEEEEEEEL start här
@@ -702,7 +707,7 @@ FS::cp(std::string sourcepath, std::string destpath)
         next_block = fat[next_block];
       }
     }
-    cout << "2 \n";
+    // cout << "2 \n";
     //**''*''*'''*''*''**CREATE FILE copied from CREATE function**''*''*''*
 
     //get file size
@@ -822,15 +827,15 @@ FS::cp(std::string sourcepath, std::string destpath)
     {
       if (curr_dir_content[i] == -1)
       {
-        cout << "curr_dir_content[i]: " << curr_dir_content[i] << "\n";
-        cout << "dir_entry_index " << dir_entry_index << "\n";
-        cout << "current i:  " << dir_entry_index << "\n";
+        // cout << "curr_dir_content[i]: " << curr_dir_content[i] << "\n";
+        // cout << "dir_entry_index " << dir_entry_index << "\n";
+        // cout << "current i:  " << dir_entry_index << "\n";
 
         curr_dir_content[i] = dir_entry_index;
         break;
       }
     }
-    cout << "4 \n";
+    cout << "5 \n";
     disk.write(ROOT_BLOCK, (uint8_t*)&dir_entries); // dir_entries in the file
 
     int parent_id = curr_dir_content[0];
@@ -840,29 +845,59 @@ FS::cp(std::string sourcepath, std::string destpath)
       parent_id = get_parent_index(dir_path);
     }
 
+    else
+    {
+      parent_id = curr_dir_content[0];
+    }
+
     if(dir_path.size() == 1)
     {
       return 0;
     }
 
-    if (dir_path.size() != 1)
-    {
-      int curr_dir_id;
-      int* parent_dir_content = (int*)calloc(ROOT_SIZE, sizeof(int));
-      disk.read(dir_entries[parent_id].first_blk, (uint8_t*)parent_dir_content);
 
-      cout << "shit i gotz here ";
-      for(int i = 0; i < ROOT_SIZE; i++){
 
-        if(dir_entries[parent_dir_content[i]].file_name == dir_path.back())
-        {
-          cout << "i gotz here \n";
-           curr_dir_id = parent_dir_content[i];
-        }
-      }
-      cout <<  "dir_block: " << dir_entries[curr_dir_id].first_blk << "\n";
-      disk.write(dir_entries[curr_dir_id].first_blk, (uint8_t*)curr_dir_content);
-    }
+    //REMOVING THIS PRINT CAUSES THE CODE TO SEGFAULT
+    /**DONT TOUCH**/ cout << endl; //DONT TOUCH
+    //REMOVING THIS PRINT CAUSES THE CODE TO SEGFAULT
+
+
+    // 1. vill hitta curr_dir_id
+    // 2. Läs hämta parents dir_content
+    // 3.
+    cout << "pathsize: " << dir_path.size();
+
+    // if (dir_path.size() != 1)
+    // {
+    //   cout <<" i've come to die here \n";
+    //   int curr_dir_id;
+    //   int* parent_dir_content = (int*)calloc(ROOT_SIZE, sizeof(int));
+    //   disk.read(dir_entries[parent_id].first_blk, (uint8_t*)parent_dir_content);
+    //   cout << "my parent is: " << parent_id << "\n";
+    //   cout << "shit i gotz here \n";
+    //   for(int i = 0; i < ROOT_SIZE; i++)
+    //   {
+    //     cout << dir_entries[parent_dir_content[i]].file_name << " = " << dir_path.back() << "\n";
+    //     if(dir_entries[parent_dir_content[i]].file_name == dir_path.back())
+    //     {
+    //       cout << "i gotz here \n";
+    //       curr_dir_id = parent_dir_content[i];
+    //       break;
+    //     }
+    //   }
+      // cout <<  "dir_block: " << dir_entries[curr_dir_id].first_blk << "\n";
+      // int curr_dir_id;
+      //
+      // for (int i = 0; i < ROOT_SIZE; i++)
+      // {
+      //   if (curr_dir_content[i] == -1)
+      //   {
+      //     curr_dir_id = i;
+      //     break;
+      //   }
+      // }
+      disk.write(dir_entries[parent_id].first_blk, (uint8_t*)curr_dir_content);
+    // }
     cout << "5 \n";
 
     // free(block_content);
@@ -1226,16 +1261,86 @@ FS::append(std::string filepath1, std::string filepath2)
     temp_entry.first_blk = start_block;
     temp_entry.type = type_2;
     temp_entry.access_rights = access_rights_2;
-
-    // entry to root
-    for(int i = 0; i < ROOT_SIZE; i++) {
-      if(dir_entries[i].first_blk == 0) {
+    int dir_entry_index;
+    for(int i = 0; i < ROOT_SIZE; i++)
+    {
+      if(dir_entries[i].first_blk == 0)
+      {
         dir_entries[i] = temp_entry;
+        dir_entry_index = i;
         break;
       }
     }
-    disk.write(ROOT_BLOCK, (uint8_t*)&dir_entries);  // Can't find this on disk after writing?
 
+    int i;
+
+    if (dir_path.size() == 1)
+    {
+      i = 0;
+    }
+
+    else
+    {
+      i = 1;
+    }
+
+    for(i; i < ROOT_SIZE; i++)
+    {
+      if (curr_dir_content[i] == -1)
+      {
+        // cout << "curr_dir_content[i]: " << curr_dir_content[i] << "\n";
+        // cout << "dir_entry_index " << dir_entry_index << "\n";
+        // cout << "current i:  " << dir_entry_index << "\n";
+
+        curr_dir_content[i] = dir_entry_index;
+        break;
+      }
+    }
+    // cout << "4 \n";
+    disk.write(ROOT_BLOCK, (uint8_t*)&dir_entries); // dir_entries in the file
+
+    int parent_id = curr_dir_content[0];
+
+    if (parent_id == -2)
+    {
+      parent_id = get_parent_index(dir_path);
+    }
+    // cout << "4.1 \n";
+    if(dir_path.size() == 1)
+    {
+      return 0;
+    }
+
+    //REMOVING THIS PRINT CAUSES THE CODE TO SEGFAULT
+    /**DONT TOUCH**/ cout << endl; //DONT TOUCH
+    //REMOVING THIS PRINT CAUSES THE CODE TO SEGFAULT
+
+    // cout << "4.2 \n";
+    if (dir_path.size() != 1 || parent_id != -2)
+    {
+      int curr_dir_id;
+      int* parent_dir_content = (int*)calloc(ROOT_SIZE, sizeof(int));
+      disk.read(dir_entries[parent_id].first_blk, (uint8_t*)parent_dir_content);
+      // cout << "4.3 \n";
+      // cout << "shit i gotz here ";
+      for(int i = 0; i < ROOT_SIZE; i++){
+        // cout << "4.4 \n";
+        if(dir_entries[parent_dir_content[i]].file_name == dir_path.back())
+        {
+          // cout << "i gotz here \n";
+          curr_dir_id = parent_dir_content[i];
+          break;
+        }
+      }
+      // cout <<  "dir_block: " << dir_entries[curr_dir_id].first_blk << "\n";
+      disk.write(dir_entries[curr_dir_id].first_blk, (uint8_t*)curr_dir_content);
+    }
+    cout << "5 \n";
+
+    // free(block_content);
+    // free(read_data);
+
+    // return 0;
     // free(block_content_1);
     // free(block_content_2);
     // free(read_data_1);
@@ -1298,7 +1403,7 @@ FS::mkdir(std::string dirpath)
           }
 
           temp_dir_content[0] = get_parent_index(dir_path);
-          cout << "parent index: " << temp_dir_content[0] << "\n";
+          // cout << "parent index: " << temp_dir_content[0] << "\n";
 
           // for(int i = 0; i < ROOT_SIZE; i++)
           // {
@@ -1320,7 +1425,7 @@ FS::mkdir(std::string dirpath)
           {
             if(dir_entries[r].first_blk == 0)
             {
-              cout <<"Dir located at index " << r << endl;
+              // cout <<"Dir located at index " << r << endl;
               dir_entries[r] = temp_entry;
               dir_entry_index = r;
               break;
@@ -1329,7 +1434,7 @@ FS::mkdir(std::string dirpath)
 
 
           int parent_index = temp_dir_content[0];
-          cout << "parent index: " << parent_index << "\n";
+          // cout << "parent index: " << parent_index << "\n";
           int parent_first_blk = dir_entries[parent_index].first_blk;
 
           if (dir_path.size() > 1)
@@ -1349,7 +1454,7 @@ FS::mkdir(std::string dirpath)
           disk.write(ROOT_BLOCK, (uint8_t*)&dir_entries);
           disk.write(start_block,  (uint8_t*)&temp_dir_content);
 
-          cout << "path size: " << dir_path.size() << "\n";
+          // cout << "path size: " << dir_path.size() << "\n";
 
           if (dir_path.size() == 1)
           {
