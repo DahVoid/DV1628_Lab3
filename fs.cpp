@@ -8,6 +8,9 @@ using namespace std;
 struct dir_entry dir_entries[ROOT_SIZE];
 vector<string> dir_path{""};
 int curr_dir_content[ROOT_SIZE];
+//vector<dir_entry> dir_path_list;
+//int current_block;
+
  // Array of dir_entries indexes mapping our folder content to the dir_entries array.
 
 int FS::file_fit_check(int num_blocks)
@@ -30,32 +33,38 @@ int FS::file_fit_check(int num_blocks)
 
 int FS::get_parent_index(std::vector<string> path)
 {
-  // cout << "Entering get parent" << endl;
+   cout << "Entering get parent" << endl;
   // set path to parent path
   vector<string> temp_path = path;
   string current_filename = temp_path[temp_path.size() - 1];
   temp_path.resize(temp_path.size() - 1);
-  int* ptr = (int*)calloc(ROOT_SIZE, sizeof(int));
-  ptr = init_dir_content(temp_path);
 
+
+  void *ptr_mem = calloc(ROOT_SIZE, sizeof(int));
+  int* ptr = (int*)ptr_mem;
+  ptr = (init_dir_content(dir_path));
+  cout << "back to get parent" << endl;
   if(temp_path.size() == 0){
     // Parent is root
     // cout << "Parent is Root!" << endl;
+    free(ptr_mem);
     return -2;
   }
 
   for (int i = 0; i < ROOT_SIZE; i++)
   {
+    cout << ptr[i] << endl;
     string filename_temp = dir_entries[ptr[i]].file_name;
     if(filename_temp == current_filename.c_str()) {
-      // cout << "Parent is: " << ptr[i] << endl;
+      cout << "Parent is: " << ptr[i] << endl;
+      free(ptr_mem);
       return ptr[i];
     }
   }
 }
 
 int * FS::init_dir_content(std::vector<string> path) { // return new dir content array so it can be assigned to temp places as well as global.
-
+  cout << "Hey look we enterd init_dir_content! \n";
    // Is root folder
   if(path.size() == 1){
 
@@ -89,10 +98,12 @@ int * FS::init_dir_content(std::vector<string> path) { // return new dir content
 
   //  //Nytt
   int dir_not_in_root_counter = 0;
+
   for (int i = 0; i < folder_index_counter; i++)
    {
     //  cout << folder_indexes[i] << "\n";
-     int* dir_content = (int*)calloc(BLOCK_SIZE, sizeof(char));
+    void *dir_content_mem = calloc(BLOCK_SIZE, sizeof(char));
+    int* dir_content = (int*)dir_content_mem;//(int*)calloc(ROOT_SIZE, sizeof(int)); 
 
      disk.read(dir_entries[folder_indexes[i]].first_blk, (uint8_t*)dir_content);
     //  if (dir_content[0] == -2)
@@ -110,6 +121,8 @@ int * FS::init_dir_content(std::vector<string> path) { // return new dir content
          dir_not_in_root_counter++;
        }
      }
+     cout << "free dir_content in function " << endl;
+     free(dir_content_mem);
    }
    int dir_in_root_counter = 0;
 
@@ -147,16 +160,15 @@ int * FS::init_dir_content(std::vector<string> path) { // return new dir content
    {
      return_value[i] = dir_in_root[i];
    }
-
+  cout << "init_dir_content retrun." << endl;
    for(int i = 0; i < ROOT_SIZE/8; i++)
    {
-    //  cout << return_value[i] << endl;
+      cout << return_value[i] << endl;
    }
-
+   
    return return_value;
 
-}
-
+  }
    else
    {
     /* if not root folder
@@ -168,37 +180,51 @@ int * FS::init_dir_content(std::vector<string> path) { // return new dir content
     int* navigation_dir;
     int cantFindFolder = 0;
     // cout << "Navigated to root " << endl;
-    int* ptr = (int*)calloc(ROOT_SIZE, sizeof(int));
-    ptr = init_dir_content(navigated_path);
-
+    cout << "gonna calloc like cool kid B)" << endl;
+    cout << dir_path.size() << endl;
+    void *ptr_mem = calloc(ROOT_SIZE, sizeof(int));
+    int* ptr = (int*)ptr_mem;
+    ptr = (init_dir_content(navigated_path));
+    cout << "heres root " << endl;
+    for(int i = 0; i < ROOT_SIZE; i++) {
+      cout << ptr[i] << endl;
+    }
     // cout << "path size: " << path.size() << endl;
     // For each dir in path
     for (int i = 1; i < path.size(); i++) { // starting at 1 since we dont want to look at root again.
       // cout << "navigated_path size: " << navigated_path.size() << endl;
       // find next directory in current dirs content
       for(int j = 0; j < ROOT_SIZE; j++) {
+        //cout << "j = " << j << endl;
         if( dir_entries[ptr[j]].file_name == path[i]) {
+          void *nav_dir_mem = calloc(BLOCK_SIZE, sizeof(char));
 
-          navigation_dir = (int*)calloc(BLOCK_SIZE, sizeof(char));
+          navigation_dir = (int*)nav_dir_mem;
           disk.read(dir_entries[ptr[j]].first_blk, (uint8_t*)navigation_dir);
           // cout << "printing navigation dir" << endl;
           for (int k = 0; k < ROOT_SIZE; k++){
             ptr[k] = navigation_dir[k];
           }
           navigated_path.push_back(dir_entries[ptr[j]].file_name);
+          free(nav_dir_mem);
           break;
         }
 
 
         if (j == ROOT_SIZE - 1) {
-          cout <<"Can't find a directory the path is pointing to" << endl;
+          
+          //cout <<"Can't find a directory the path is pointing to" << endl;
           int* fail;
           fail[0] = -1337;
+          //cout << "freeing ptr_mem in case of init dir content fail" << endl;
+          free(ptr_mem);
           return fail;
         }
 
       }
     }
+    cout << "freeing ptr_mem in path > 1" << endl;
+    free(ptr_mem);
     return ptr;
 
    }
@@ -261,12 +287,15 @@ FS::FS()
     }
 
         // Set the root folder
-    int* ptr = (int*)calloc(ROOT_SIZE, sizeof(int));
-    cout << "-- Starting init of root dir \n";
-    ptr = init_dir_content(dir_path);
+    void *ptr_mem = calloc(ROOT_SIZE, sizeof(int));
+    int* ptr = (int*)ptr_mem;
+    ptr = (init_dir_content(dir_path));
+
     for(int i = 0; i < ROOT_SIZE; i++) {
        curr_dir_content[i] = ptr[i];
     }
+    cout << "freeing fs ptrmem\n";
+    free(ptr_mem);
 
 }
 
@@ -305,10 +334,10 @@ FS::format()
     }
 
     fat[ROOT_BLOCK] = FAT_EOF;
-    disk.write(ROOT_BLOCK, (uint8_t*)&dir_entries); // dir_entries in the file
+    disk.write(ROOT_BLOCK, (uint8_t*)dir_entries); // dir_entries in the file
 
     fat[FAT_BLOCK] = FAT_EOF;
-    disk.write(FAT_BLOCK, (uint8_t*)&fat); // Fat in the file
+    disk.write(FAT_BLOCK, (uint8_t*)fat); // Fat in the file
     std::cout << "FS::format()\n";
     return 0;
 }
@@ -401,7 +430,7 @@ FS::create(std::string filepath)
             elements_in_fat_counter++;
           }
         }
-        disk.write(FAT_BLOCK, (uint8_t*)&fat);
+        disk.write(FAT_BLOCK, (uint8_t*)fat);
 
         // Write to the disk
         for(int j = start_block; j < start_block + num_blocks; j++)
@@ -488,7 +517,7 @@ FS::create(std::string filepath)
     // {
     //   cout << "curr_durcontent " << curr_dir_content[i] << "\n";
     // }
-    disk.write(ROOT_BLOCK, (uint8_t*)&dir_entries);
+    disk.write(ROOT_BLOCK, (uint8_t*)dir_entries);
 
     int parent_id = curr_dir_content[0];
 
@@ -586,8 +615,12 @@ FS::cat(std::string filepath)
 
     //Present content
     cout << read_data << endl;
-    // free(block_content);
-    // free(read_data);
+    block_content= NULL;
+    read_data = NULL;
+    cout << "freeing block_content \n";
+    free(block_content);
+    cout << "freeing read_data \n";
+    free(read_data);
     return 0;
 }
 
@@ -763,7 +796,7 @@ FS::cp(std::string sourcepath, std::string destpath)
                 elements_in_fat_counter++;
               }
             }
-        disk.write(FAT_BLOCK, (uint8_t*)&fat); // Fat in the file
+        disk.write(FAT_BLOCK, (uint8_t*)fat); // Fat in the file
 
         for(int j = start_block; j < start_block + blocks_to_read; j++) {
           if (blocks_to_read == 1)
@@ -836,7 +869,7 @@ FS::cp(std::string sourcepath, std::string destpath)
       }
     }
     cout << "5 \n";
-    disk.write(ROOT_BLOCK, (uint8_t*)&dir_entries); // dir_entries in the file
+    disk.write(ROOT_BLOCK, (uint8_t*)dir_entries); // dir_entries in the file
 
     int parent_id = curr_dir_content[0];
 
@@ -924,7 +957,7 @@ FS::mv(std::string sourcepath, std::string destpath)
     for(int i = 0; i < ROOT_SIZE; i++){
       if(dir_entries[i].file_name == sourcepath){
         strcpy(dir_entries[i].file_name, destpath.c_str());
-        disk.write(ROOT_BLOCK, (uint8_t*)&dir_entries); // dir_entries in the file
+        disk.write(ROOT_BLOCK, (uint8_t*)dir_entries); // dir_entries in the file
 
         return 0;
       }
@@ -1024,8 +1057,8 @@ FS::rm(std::string filepath)
     std::cout << "FS::create(" << filepath << ")\n";
 
 
-    disk.write(ROOT_BLOCK, (uint8_t*)&dir_entries); // dir_entries in the file
-    disk.write(FAT_BLOCK, (uint8_t*)&fat); // Fat in the file
+    disk.write(ROOT_BLOCK, (uint8_t*)dir_entries); // dir_entries in the file
+    disk.write(FAT_BLOCK, (uint8_t*)fat); // Fat in the file
 
     return 0;
 }
@@ -1230,7 +1263,7 @@ FS::append(std::string filepath1, std::string filepath2)
             elements_in_fat_counter++;
           }
         }
-        disk.write(FAT_BLOCK, (uint8_t*)&fat);
+        disk.write(FAT_BLOCK, (uint8_t*)fat);
 
         for(int j = start_block; j < start_block + num_blocks; j++) {
           if (num_blocks == 1)
@@ -1297,7 +1330,7 @@ FS::append(std::string filepath1, std::string filepath2)
       }
     }
     // cout << "4 \n";
-    disk.write(ROOT_BLOCK, (uint8_t*)&dir_entries); // dir_entries in the file
+    disk.write(ROOT_BLOCK, (uint8_t*)dir_entries); // dir_entries in the file
 
     int parent_id = curr_dir_content[0];
 
@@ -1341,10 +1374,18 @@ FS::append(std::string filepath1, std::string filepath2)
     // free(read_data);
 
     // return 0;
-    // free(block_content_1);
-    // free(block_content_2);
-    // free(read_data_1);
-    // free(read_data_2);
+    // block_content_1 = NULL;
+    // block_content_2 = NULL;
+    // read_data_1 = NULL;
+    // read_data_2 = NULL;
+    cout <<"freeing block_content_1 \n";
+    free(block_content_1);
+    cout << "freeing block_content_2 \n";
+    free(block_content_2);
+    cout << "freeing read_data_1 \n";
+    free(read_data_1);
+    cout << "freeing read_data_2 \n";
+    free(read_data_2);
     return 0;
 }
 
@@ -1388,7 +1429,7 @@ FS::mkdir(std::string dirpath)
               elements_in_fat_counter++;
             }
           }
-          disk.write(FAT_BLOCK, (uint8_t*)&fat);
+          disk.write(FAT_BLOCK, (uint8_t*)fat);
 
           // write dir entry list
           struct dir_entry temp_entry;
@@ -1443,29 +1484,38 @@ FS::mkdir(std::string dirpath)
             {
               if (curr_dir_content[j] == -1)
               {
-                cout << "curr_dir_content: " <<curr_dir_content[j] << endl;
                 curr_dir_content[j] = dir_entry_index;
+ 
                 break;
               }
             }
-            disk.write(parent_first_blk, (uint8_t*)&curr_dir_content);
+            disk.write(parent_first_blk, (uint8_t*)curr_dir_content);
           }
 
-          disk.write(ROOT_BLOCK, (uint8_t*)&dir_entries);
-          disk.write(start_block,  (uint8_t*)&temp_dir_content);
+          disk.write(ROOT_BLOCK, (uint8_t*)dir_entries);
+          disk.write(start_block,  (uint8_t*)temp_dir_content);
 
           // cout << "path size: " << dir_path.size() << "\n";
 
           if (dir_path.size() == 1)
           {
-            int* ptr = (int*)calloc(ROOT_SIZE, sizeof(int));
+            void *ptr_mem = calloc(ROOT_SIZE, sizeof(int));
+            int* ptr[ROOT_SIZE];
+            ptr = (int*)ptr_mem; // WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING ptr får inte några värden1!!!
             ptr = init_dir_content(dir_path);
+            cout << dir_path.size() << " dir pat sise" << endl;
+            cout << dir_path.back() << " dir pat bak"<< endl;
+ 
 
             for(int i = 0; i < ROOT_SIZE; i++)
             {
                curr_dir_content[i] = ptr[i];
+               cout << " curr_dir_content[i] now is " << ptr[i] << endl;
             }
-            // free(ptr);
+            // free
+            cout << "freeing ptr \n";
+
+            free(ptr_mem);
           }
 
 
@@ -1494,8 +1544,9 @@ FS::cd(std::string new_dir)
 
     dir_path.resize(dir_path.size() - 1);
     // Set new folder dir content
-    int* ptr = (int*)calloc(ROOT_SIZE, sizeof(int));
-    ptr = init_dir_content(dir_path);
+    void *ptr_mem = calloc(ROOT_SIZE, sizeof(int));
+    int* ptr = (int*)ptr_mem;
+    ptr = (init_dir_content(dir_path));
 
     for(int i = 0; i < ROOT_SIZE; i++)
     {
@@ -1503,19 +1554,29 @@ FS::cd(std::string new_dir)
     }
 
     // get new dir content
+    cout << "freeing ptr 2 \n";
+    free(ptr_mem);
     return 0;
   }
   else
   {
+    cout << "entered else" << endl;
     dir_path.push_back(new_dir);
 
     // Set new folder dir content
-    int* ptr = (int*)calloc(ROOT_SIZE, sizeof(int));
-    ptr = init_dir_content(dir_path);
+    cout << "gonna calloc B)" << endl;
+    void *ptr_mem = calloc(ROOT_SIZE, sizeof(int));
+    int* ptr = (int*)ptr_mem;
+    cout << "gonna init_dir_content \n";
+    ptr = init_dir_content(dir_path) ;
+    cout << "Gonna loop dir content \n";
     for(int i = 0; i < ROOT_SIZE; i++)
     {
+      cout << " curr_dir_content[" << i << "] = " << curr_dir_content[i] << "\n";
+      cout << "ptr[" << i << "] = " << ptr[i] << "\n";
       curr_dir_content[i] = ptr[i];
     }
+    free(ptr_mem);
     return 0;
   }
     cout << "directory not found" << endl;
@@ -1651,6 +1712,6 @@ FS::chmod(std::string accessrights, std::string filepath)
     //Change file accessrights
     dir_entries[file_index].access_rights = accessrights_int;
 
-    disk.write(ROOT_BLOCK, (uint8_t*)&dir_entries);
+    disk.write(ROOT_BLOCK, (uint8_t*)dir_entries);
     return 0;
 }
