@@ -39,7 +39,7 @@ int FS::get_parent_index(std::vector<string> path)
 
   void *ptr_mem = calloc(ROOT_SIZE, sizeof(int));
   int* ptr = (int*)ptr_mem;
-  ptr = (init_dir_content(dir_path));
+  ptr = init_dir_content(temp_path);
   cout << "back to get parent" << endl;
   if(temp_path.size() == 0){
     // Parent is root
@@ -52,12 +52,17 @@ int FS::get_parent_index(std::vector<string> path)
   {
     cout << ptr[i] << endl;
     string filename_temp = dir_entries[ptr[i]].file_name;
+    cout << current_filename << endl;
+    cout << dir_entries[ptr[i]].file_name << endl;
     if(filename_temp == current_filename.c_str()) {
       cout << "Parent is: " << ptr[i] << endl;
+      cout << "freeing ptr mem get parentu" << endl;
       free(ptr_mem);
       return ptr[i];
     }
   }
+
+  cout << "failed?" << endl;
 }
 
 int * FS::init_dir_content(std::vector<string> path) { // return new dir content array so it can be assigned to temp places as well as global.
@@ -221,6 +226,10 @@ int * FS::init_dir_content(std::vector<string> path) { // return new dir content
     }
     cout << "freeing ptr_mem in path > 1" << endl;
     free(ptr_mem);
+    cout << "The ptr we return here has these values: " << endl;
+    for (int i = 0; i < ROOT_SIZE; i++) {
+      cout << "ptr[i] = " << ptr[i] << endl;
+    }
     return ptr;
 
    }
@@ -530,6 +539,7 @@ FS::create(std::string filepath)
     if (parent_id == -2)
     {
       parent_id = get_parent_index(dir_path);
+      cout << "got parent_id " << parent_id << "\n";
     }
 
     if(dir_path.size() == 1)
@@ -545,7 +555,9 @@ FS::create(std::string filepath)
     {
       int curr_dir_id;
       int* parent_dir_content = (int*)calloc(ROOT_SIZE, sizeof(int));
+      cout << "gonna reeead" << endl;
       disk.read(dir_entries[parent_id].first_blk, (uint8_t*)parent_dir_content);
+      cout << "reeead" << endl;
 
       // cout << "shit i gotz here ";
       for(int i = 0; i < ROOT_SIZE; i++){
@@ -557,7 +569,7 @@ FS::create(std::string filepath)
           break;
         }
       }
-      // cout <<  "dir_block: " << dir_entries[curr_dir_id].first_blk << "\n";
+      cout <<  "dir_block: " << dir_entries[curr_dir_id].first_blk << "\n";
       disk.write(dir_entries[curr_dir_id].first_blk, (uint8_t*)curr_dir_content);
     }
 
@@ -1023,7 +1035,8 @@ FS::mv(std::string sourcepath, std::string destpath)
           }
 
           cout << "2\n";
-          int* new_dir_content= (int*)calloc(ROOT_SIZE, sizeof(int)); // NEED TO FREE THIS POINTER ALERT ALERT!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+          void *new_dir_content_mem = calloc(ROOT_SIZE, sizeof(int));
+          int* new_dir_content= (int*)new_dir_content; // NEED TO FREE THIS POINTER ALERT ALERT!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
           // for (int e = 0; e < ROOT_SIZE; e++)
           // {
           //   new_dir_content[e] = -1;
@@ -1084,6 +1097,7 @@ FS::mv(std::string sourcepath, std::string destpath)
               cout << "dir_path size: " << dir_path.size() << "\n";
 
               disk.write(dir_entries[parent_id].first_blk, (uint8_t*)curr_dir_content);
+              free(new_dir_content_mem);
               return 0;
             }
 
@@ -1094,11 +1108,14 @@ FS::mv(std::string sourcepath, std::string destpath)
                 if (curr_dir_content[r] == dir_entry_index)
                 {
                   curr_dir_content[r] = -1;
+                  free(new_dir_content_mem);
                   return 0;
                 }
               }
+              free(new_dir_content_mem);
               return 0;
             }
+            free(new_dir_content_mem);
             return 0;
           }
         cout << "Directory not found! \n";
@@ -1671,7 +1688,7 @@ FS::mkdir(std::string dirpath)
           if (dir_path.size() == 1)
           {
             void *ptr_mem = calloc(ROOT_SIZE, sizeof(int));
-            int* ptr[ROOT_SIZE];
+            int* ptr;
             ptr = (int*)ptr_mem; // WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING ptr får inte några värden1!!!
             ptr = init_dir_content(dir_path);
             cout << dir_path.size() << " dir pat sise" << endl;
