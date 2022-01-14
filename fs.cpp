@@ -3,12 +3,39 @@
 #include <cstring>
 #include <vector>
 #include <typeinfo> // for debugging
+#include <iomanip>
 using namespace std;
 
 struct dir_entry dir_entries[ROOT_SIZE];
 vector<int> dir_path;
 int curr_dir_content[ROOT_SIZE];
  // Array of dir_entries indexes mapping our folder content to the dir_entries array.
+
+int FS::accessrights_check(int dir_entry_index, int accessrights)
+{
+
+  int dest_file_accessrights = dir_entries[dir_entry_index].access_rights;
+
+  //READ check
+  if (accessrights == READ)
+  {
+    if (dest_file_accessrights == READ || dest_file_accessrights == READ + WRITE || dest_file_accessrights == READ + WRITE + EXECUTE || dest_file_accessrights == READ + EXECUTE)
+    {
+      return 0;
+    }
+    return -1;
+  }
+  //WRITE check
+  if (accessrights == WRITE)
+  {
+    if (dest_file_accessrights == WRITE || dest_file_accessrights == READ + WRITE || dest_file_accessrights == READ + WRITE + EXECUTE || dest_file_accessrights == WRITE + EXECUTE)
+    {
+      return 0;
+    }
+    return -1;
+  }
+  //EXECUTE check
+}
 
 int FS::file_fit_check(int num_blocks) //KLAAAAAAAAAAAAAAAAAAAAAAR
 {
@@ -250,6 +277,15 @@ FS::create(std::string filepath) //KLAAAAAAAAAAAAAAAAAAAAAAAAAAR
       }
     }
 
+    if (dir_path.size() != 0)
+    {
+      if (accessrights_check(dir_path.back(), WRITE) == -1)
+      {
+        cout << "You do not have the rights to create files in this directory! \n";
+        return 0;
+      }
+    }
+
     cout << "Enter the information: ";
 
     while (getline(cin, string_to_eval_temp) && string_to_eval_temp.length() != 0)
@@ -365,7 +401,7 @@ FS::create(std::string filepath) //KLAAAAAAAAAAAAAAAAAAAAAAAAAAR
     cout << "dir_entry_size: " << temp_entry.size << " == func_size: " << size_of_file << "\n";
     temp_entry.first_blk = start_block;
     temp_entry.type = TYPE_FILE;
-    temp_entry.access_rights = READ;
+    temp_entry.access_rights = READ + WRITE;
         cout << "2\n";
     // dir_entry to root
     int dir_entry_index;
@@ -464,10 +500,10 @@ FS::cat(std::string filepath) ////KLAAAAAR
     // Find file
     for(int i = 0; i < ROOT_SIZE; i++){
 
-      if(dir_entries[i].file_name == filepath)
+      if(dir_entries[curr_dir_content[i]].file_name == filepath)
       {
         file_found = 1;
-        entry_index = i;
+        entry_index = curr_dir_content[i];
         blocks_to_read = dir_entries[i].size/BLOCK_SIZE;
         // Add rest block if exists
         if(dir_entries[i].size%BLOCK_SIZE > 0)
@@ -477,13 +513,28 @@ FS::cat(std::string filepath) ////KLAAAAAR
         break;
       }
     }
+
+    if (file_found == 0)
+    {
+      cout << "No file with that name found, try again\n";
+      return 0;
+    }
+
+    if (dir_entries[entry_index].type == TYPE_DIR)
+    {
+      cout << "Cannot read a directory! \n";
+      return 0;
+    }
+
+    if (accessrights_check(entry_index, READ) == -1)
+    {
+      cout << "You do not have the rights to read this file! \n";
+      return 0;
+    }
+
     // if type = file
-    if(dir_entries[entry_index].type == TYPE_FILE){
-      if (file_found == 0)
-      {
-        cout << "No file with that name found, try again\n";
-        return 0;
-      }
+    if(dir_entries[entry_index].type == TYPE_FILE)
+    {
 
       if(blocks_to_read == 0){
         return -1;
@@ -510,19 +561,8 @@ FS::cat(std::string filepath) ////KLAAAAAR
       free(block_content);
       free(read_data);
       return 0;
-    } else {
-      
-      cout << "Cannot not cat directory" << endl;
-      // debug code below
-      // int temp_dir_content[64];
-      // disk.read(dir_entries[entry_index].first_blk, (uint8_t*)temp_dir_content);
-      // for(int i = 0; i < ROOT_SIZE; i++){
-      //   cout << temp_dir_content[i] << endl;
-      // }
-      return -1;
-    }
-
-
+    } 
+    return 0;
 }
 
 // ls lists the content in the currect directory (files and sub-directories)
@@ -539,12 +579,64 @@ FS::ls() ////KLAR FÖR ROOTEN MEN INTE FÖR DJUP
   //     }
   // }
   // dir_size++
-
+  cout << "name" << setw(15) << "type" << setw(15) << "accessrights" << setw(15) << "size" << "\n";
   for (int i = 0; i < sizeof(curr_dir_content)/sizeof(curr_dir_content[0]); i++)
       {
         if (curr_dir_content[i] != -1)
         {
-          cout << dir_entries[curr_dir_content[i]].file_name << "                     " << dir_entries[curr_dir_content[i]].size << "\n";
+          string type;
+          if (dir_entries[curr_dir_content[i]].type == TYPE_DIR)
+          {
+            type = "dir";
+          }
+          else
+          {
+            type = "file";
+          }
+
+          string accessrights_str;
+          int accessrights = dir_entries[curr_dir_content[i]].access_rights;
+
+          if (accessrights == 0)
+          {
+            accessrights_str = "---";
+          }
+
+          else if (accessrights == READ)
+          {
+            accessrights_str = "r--";
+          }
+
+          else if (accessrights == READ + WRITE)
+          {
+            accessrights_str = "rw-";
+          }
+
+          else if (accessrights == READ + WRITE + EXECUTE)
+          {
+            accessrights_str = "rwx";
+          }
+
+          else if (accessrights == READ + EXECUTE)
+          {
+            accessrights_str = "r-x";
+          }
+
+          else if (accessrights == WRITE)
+          {
+            accessrights_str = "-w-";
+          }
+
+          else if (accessrights == WRITE + EXECUTE)
+          {
+            accessrights_str = "-wx";
+          }
+
+          else if (accessrights == EXECUTE)
+          {
+            accessrights_str = "--x";
+          }
+          cout << dir_entries[curr_dir_content[i]].file_name << setw(15) << type << setw(15) << accessrights_str << setw(15) << dir_entries[curr_dir_content[i]].size << "\n";
         }
       }
 
@@ -574,12 +666,26 @@ FS::cp(std::string sourcepath, std::string destpath) ////KLAAAAAAAAAAAAAAAAAAAAA
       }
     }
 
-    // check if source is directory
+      // check if source is directory
       if(dir_entries[dir_entry_index].type == TYPE_DIR) {
         cout << "Cannot copy a directory." << endl;
         return -1;
       }
 
+    if (accessrights_check(dir_entry_index, READ) == -1)
+    {
+      cout << "You do not have the rights to read this file! \n";
+      return 0;
+    }
+
+    if (dir_path.size() != 0)
+    {
+      if (accessrights_check(dir_path.back(), WRITE) == -1)
+      {
+        cout << "You do not have the rights to write to this directory \n";
+        return 0;
+      }
+    }
 
     for(int i = 0; i < ROOT_SIZE; i++)
     {
@@ -849,7 +955,6 @@ int
 FS::mv(std::string sourcepath, std::string destpath) //KLAAAAAAAAAAAAAAAAAAAAAAR
 {
     std::cout << "FS::mv(" << sourcepath << "," << destpath << ")\n";
-    // IMPÅTANT CHECK IF FILE EXISTS OTHERWISE YOU WILL SEGG
     //check if sourcepath exists
     int src_entry_index = -1;
     for (int i = 0; i < ROOT_SIZE; i++)
@@ -879,13 +984,19 @@ FS::mv(std::string sourcepath, std::string destpath) //KLAAAAAAAAAAAAAAAAAAAAAAR
         // make to orphan
         // find index
         int dir_entry_index;
-        for(int i = 0; ROOT_SIZE; i++) 
+        for(int i = 0; ROOT_SIZE; i++)
         {
           if(dir_entries[curr_dir_content[i]].file_name == sourcepath)
           {
             dir_entry_index = curr_dir_content[i];
             break;
           }
+        }
+
+        if (accessrights_check(dir_path.back(), WRITE) == -1)
+        {
+          cout << "You do not the rights to write to this directory! \n";
+          return 0;
         }
 
         //check if other orphan with same name already exists
@@ -926,7 +1037,11 @@ FS::mv(std::string sourcepath, std::string destpath) //KLAAAAAAAAAAAAAAAAAAAAAAR
         }
       }
 
-
+      if (accessrights_check(dir_path.back(), WRITE) == -1 || accessrights_check(dir_path_temp.back(), WRITE) == -1)
+      {
+        cout << "You do not the rights to write to one or both of these directories! \n";
+        return 0;
+      }
       // get parents dirs
       int parent_dir_content[BLOCK_SIZE];
       disk.read(dir_entries[dir_path_temp.back()].first_blk, (uint8_t*)parent_dir_content);
@@ -940,6 +1055,7 @@ FS::mv(std::string sourcepath, std::string destpath) //KLAAAAAAAAAAAAAAAAAAAAAAR
         }
       }
 
+
       for(int i = 0; i < ROOT_SIZE; i++ )
       {
         if(curr_dir_content[i] == dir_entry_index) 
@@ -949,7 +1065,7 @@ FS::mv(std::string sourcepath, std::string destpath) //KLAAAAAAAAAAAAAAAAAAAAAAR
         }
       }
 
-      for(int i = 0; i < ROOT_SIZE; i++) 
+      for(int i = 0; i < ROOT_SIZE; i++)
       {
         if(parent_dir_content[i] == -1)
         {
@@ -959,7 +1075,7 @@ FS::mv(std::string sourcepath, std::string destpath) //KLAAAAAAAAAAAAAAAAAAAAAAR
       }
 
       disk.write(dir_entries[dir_path_temp.back()].first_blk, (uint8_t*)parent_dir_content);
-      
+
       return 0;
     }
 
@@ -979,7 +1095,7 @@ FS::mv(std::string sourcepath, std::string destpath) //KLAAAAAAAAAAAAAAAAAAAAAAR
     // Is destpath a directory?
     for(int i = 0; i < ROOT_SIZE; i++)
     {
-      
+
       if(dir_entries[curr_dir_content[i]].file_name == destpath && dir_entries[curr_dir_content[i]].type == TYPE_DIR)
       {
         //**""**""**""**""  enter folder  **""**""**""**""
@@ -1001,8 +1117,19 @@ FS::mv(std::string sourcepath, std::string destpath) //KLAAAAAAAAAAAAAAAAAAAAAAR
           }
         }
 
+        if (accessrights_check(dir_path.back(), WRITE) == -1 || accessrights_check(dir_path_temp.back(), WRITE) == -1)
+        {
+          cout << "You do not the rights to write to one or both of these directories! \n";
+          return 0;
+        }
 
-
+        for(int i = 0; i < ROOT_SIZE; i++)
+        {
+          if(curr_dir_content[i] == dir_entry_index)
+          {
+            curr_dir_content[i] = -1;
+          }
+        }
 
         if(dir_path.size() == 0)
         {
@@ -1036,7 +1163,7 @@ FS::mv(std::string sourcepath, std::string destpath) //KLAAAAAAAAAAAAAAAAAAAAAAR
             }
           }
           disk.write(dir_entries[dir_path_temp.back()].first_blk, (uint8_t*)new_dir_content);
-          
+
           return 0;
         }
 
@@ -1048,7 +1175,6 @@ FS::mv(std::string sourcepath, std::string destpath) //KLAAAAAAAAAAAAAAAAAAAAAAR
 
         int new_dir_content[BLOCK_SIZE];
         cout << "gonna riid \n";
-
         disk.read(dir_entries[dir_path_temp.back()].first_blk, (uint8_t*)new_dir_content);
         // check if name exists in the new directory
         for (int i = 0; i < ROOT_SIZE; i++)
@@ -1071,7 +1197,6 @@ FS::mv(std::string sourcepath, std::string destpath) //KLAAAAAAAAAAAAAAAAAAAAAAR
 
         disk.write(dir_entries[dir_path.back()].first_blk, (uint8_t*)curr_dir_content);
 
-
         cout << "starting loop 3" << endl;
         for(int i = 0; i < ROOT_SIZE; i++)
         {
@@ -1082,10 +1207,10 @@ FS::mv(std::string sourcepath, std::string destpath) //KLAAAAAAAAAAAAAAAAAAAAAAR
           }
         }
         disk.write(dir_entries[dir_path_temp.back()].first_blk, (uint8_t*)new_dir_content);
-        
+
         return 0;
       }
-   
+
 
     }
 
@@ -1101,7 +1226,6 @@ FS::mv(std::string sourcepath, std::string destpath) //KLAAAAAAAAAAAAAAAAAAAAAAR
           return -1;
         }
       }
-
       if(dir_entries[i].file_name == sourcepath)
       {
         strcpy(dir_entries[i].file_name, destpath.c_str());
@@ -1117,7 +1241,7 @@ FS::mv(std::string sourcepath, std::string destpath) //KLAAAAAAAAAAAAAAAAAAAAAAR
 
 // rm <filepath> removes / deletes the file <filepath>
 int
-FS::rm(std::string filepath) //KLAAAAAAAAAAAAAAAAAAAAAAAAAR
+FS::rm(std::string filepath, int from_append) //KLAAAAAAAAAAAAAAAAAAAAAAAAAR
 {
     std::cout << "FS::rm(" << filepath << ")\n";
 
@@ -1134,19 +1258,33 @@ FS::rm(std::string filepath) //KLAAAAAAAAAAAAAAAAAAAAAAAAAR
         if(dir_entries[dir_entry_index].type == TYPE_DIR)
         {
           int temp_dir_content[BLOCK_SIZE];
-
           disk.read(dir_entries[dir_entry_index].first_blk, (uint8_t*)temp_dir_content);
           for(int j = 0; j < ROOT_SIZE; j++)
           {
-            cout << "temp_dir_content " << temp_dir_content[j] << endl;
             if (temp_dir_content[j] != -1)
             {
               cout << "Empty the directory before removing it." << endl;
               return -1;
-              
+
             }
           }
         }
+
+        if (accessrights_check(dir_entry_index, WRITE) == -1 && from_append == 1)
+        {
+          cout << "You do not have the rights to write to this file! \n";
+          return 0;
+        }
+
+        if (dir_path.size() != 0)
+        {
+          if (accessrights_check(dir_path.back(), WRITE) == -1 && from_append == 1)
+          {
+            cout << "You do not have the rights to write to this directory! \n";
+            return 0;
+          }
+        }
+
 
 
         // Clear fat
@@ -1204,10 +1342,10 @@ FS::rm(std::string filepath) //KLAAAAAAAAAAAAAAAAAAAAAAAAAR
     if(dir_path.size() == 0)
     {
       disk.write(FAT_BLOCK, (uint8_t*)fat);
-      disk.write(ROOT_BLOCK, (uint8_t*)dir_entries); 
+      disk.write(ROOT_BLOCK, (uint8_t*)dir_entries);
       return 0;
     }
-    
+
     // if remove folder, shall we remove content? NO!!!
     int parent_dir_content[BLOCK_SIZE];
     disk.read(dir_entries[dir_path.back()].first_blk, (uint8_t*)parent_dir_content);
@@ -1275,7 +1413,6 @@ FS::append(std::string filepath1, std::string filepath2) //KLAAAAAAAAAAAAAAAAAAA
           cout << "Cannot not append directory." << endl;
           return -1;
         }
-
         blocks_to_read_1 = dir_entries[curr_dir_content[i]].size/BLOCK_SIZE;
         dir_entry_index_1 = curr_dir_content[i];
         // Add rest block if exists
@@ -1294,7 +1431,8 @@ FS::append(std::string filepath1, std::string filepath2) //KLAAAAAAAAAAAAAAAAAAA
       return 0;
     }
 
-    if(blocks_to_read_1 == 0){
+    if(blocks_to_read_1 == 0)
+    {
       return -1;
     }
 
@@ -1335,8 +1473,22 @@ FS::append(std::string filepath1, std::string filepath2) //KLAAAAAAAAAAAAAAAAAAA
       return 0;
     }
 
-    if(blocks_to_read_2 == 0){
+    if(blocks_to_read_2 == 0)
+    {
       return -1;
+    }
+
+
+    if (accessrights_check(dir_entry_index_1, WRITE) == -1 || accessrights_check(dir_entry_index_2, WRITE) == -1)
+    {
+      cout << "You do not have the rights to write to one or both of these files! \n";
+      return 0;
+    }
+
+    if (accessrights_check(dir_entry_index_1, READ) == -1 || accessrights_check(dir_entry_index_2, READ) == -1)
+    {
+      cout << "You do not have the rights to read one or both of these files! \n";
+      return 0;
     }
 
     // *""*""*""*""*"" READ FILE INFO *""*""*""*""*""**
@@ -1423,7 +1575,7 @@ FS::append(std::string filepath1, std::string filepath2) //KLAAAAAAAAAAAAAAAAAAA
     }
 
     // *""*""*""*""*"" REMOVE FILE 2 *""*""*""*""*""**
-    rm(filepath2);
+    rm(filepath2 , 2);
 
     int free_spaces[num_blocks];
     int free_space_counter = 0;
@@ -1589,7 +1741,9 @@ FS::mkdir(std::string dirpath) //KLAaaaaaaaaaaaaaaaar
       cout << "Disk full!\n";
       return 0;
     }
+    cout << "1 \n";
 
+    
     // check if name already exists in directory
     for (int i = 0; i < ROOT_SIZE; i++)
     {
@@ -1600,6 +1754,15 @@ FS::mkdir(std::string dirpath) //KLAaaaaaaaaaaaaaaaar
       }
     }
 
+    if (dir_path.size() != 0)
+    {
+      if (accessrights_check(dir_path.back(), WRITE) == -1)
+      {
+        cout << "You do not have the rights to write to this directory! \n";
+        return 0;
+      }
+    }
+    cout << "1 \n";
     int free_spaces[num_blocks];
     int free_space_counter = 0;
     cout << "-2\n";
@@ -1644,8 +1807,8 @@ FS::mkdir(std::string dirpath) //KLAaaaaaaaaaaaaaaaar
 
           temp_entry.first_blk = start_block;
           temp_entry.type = TYPE_DIR;
-          temp_entry.access_rights = READ;
-          temp_entry.size = sizeof(temp_dir_content);
+          temp_entry.access_rights = READ + WRITE;
+          temp_entry.size = 0;
 
           // dir_entry to root block
           //find empty slot in dir entries
@@ -1776,6 +1939,13 @@ FS::cd(std::string new_dir) // KLAAAAAAAAAAAAAAAAAAAAAAR
     {
       if (dir_entries[curr_dir_content[i]].file_name == new_dir && dir_entries[curr_dir_content[i]].type == TYPE_DIR)
       {
+
+        if (accessrights_check(curr_dir_content[i], READ) == -1)
+        {
+          cout << "You do not have the rights to read this directory! \n";
+          return 0;
+        }
+
         dir_path.resize(dir_path.size() + 1);
         dir_path[dir_path.size() -1 ] = curr_dir_content[i]; // Not using 
 
@@ -1843,30 +2013,30 @@ FS::chmod(std::string accessrights, std::string filepath) // Inte klar
 {
     std::cout << "FS::chmod(" << accessrights << "," << filepath << ")\n";
 
-    //DEBUGGING
-    for (int i = 0; i < 64 ; i++){
-      cout << "fat[" << i << "] = " << fat[i] << "\n";
-    }
-
-    for (int i = 0; i < 64 ; i++){
-      if(dir_entries[i].first_blk < 0 || dir_entries[i].first_blk > ROOT_SIZE){
-        continue;
-      }
-      cout << "dir_entry[" << i << "] = " << dir_entries[i].file_name << "   Size == "<< dir_entries[i].size << "\n";
-    }
-
-    cout << "current directory: \n";
-    for (int i = 0; i < dir_path.size(); i++)
-    {
-      cout << "file " << i << ": " << dir_path[i] << "\n";
-    }
-
-    cout << "\n";
-    
-    for (int i = 0; i < ROOT_SIZE; i++)
-    {
-      cout << "file " << i << ": " << curr_dir_content[i] << "\n";
-    } 
+    // //DEBUGGING
+    // for (int i = 0; i < 64 ; i++){
+    //   cout << "fat[" << i << "] = " << fat[i] << "\n";
+    // }
+    //
+    // for (int i = 0; i < 64 ; i++){
+    //   if(dir_entries[i].first_blk < 0 || dir_entries[i].first_blk > ROOT_SIZE){
+    //     continue;
+    //   }
+    //   cout << "dir_entry[" << i << "] = " << dir_entries[i].file_name << "   Size == "<< dir_entries[i].size << "\n";
+    // }
+    //
+    // cout << "current directory: \n";
+    // for (int i = 0; i < dir_path.size(); i++)
+    // {
+    //   cout << "file " << i << ": " << dir_path[i] << "\n";
+    // }
+    //
+    // cout << "\n";
+    //
+    // for (int i = 0; i < ROOT_SIZE; i++)
+    // {
+    //   cout << "file " << i << ": " << curr_dir_content[i] << "\n";
+    // }
 
 
     //ACTUAL CODE
@@ -1926,11 +2096,6 @@ FS::chmod(std::string accessrights, std::string filepath) // Inte klar
     else if (accessrights == "--x")
     {
       accessrights_int = EXECUTE;
-    }
-
-    else if (accessrights == "r-x")
-    {
-      accessrights_int = READ + EXECUTE;
     }
 
     else

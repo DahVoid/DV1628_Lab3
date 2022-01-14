@@ -41,6 +41,7 @@ private:
     int file_fit_check(int num_blocks);
     // int get_parent_index(vector<int> path);
     void save_curr_dir();
+    int accessrights_check(int dir_entry_index, int accessrights);
 public:
     FS();
     ~FS();
@@ -61,7 +62,7 @@ public:
     // or moves the file <sourcepath> to the directory <destpath> (if dest is a directory)
     int mv(std::string sourcepath, std::string destpath);
     // rm <filepath> removes / deletes the file <filepath>
-    int rm(std::string filepath);
+    int rm(std::string filepath, int from_append = 1);
     // append <filepath1> <filepath2> appends the contents of file <filepath1> to
     // the end of file <filepath2>. The file <filepath1> is unchanged.
     int append(std::string filepath1, std::string filepath2);
