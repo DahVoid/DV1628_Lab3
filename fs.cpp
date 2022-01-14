@@ -399,12 +399,13 @@ FS::create(std::string filepath) //KLAAAAAAAAAAAAAAAAAAAAAAAAAAR
       return 0;
     }
     cout << "5\n";
+    cout << dir_path.size() << endl;
 
     //REMOVING THIS PRINT CAUSES THE CODE TO SEGFAULT
     /**DONT TOUCH**/ cout << endl; //DONT TOUCH
     //REMOVING THIS PRINT CAUSES THE CODE TO SEGFAULT
 
-    if (dir_path.size() != 1)
+    if (dir_path.size() != 0) // ÄNDRADE FRÅN 1 TILL 0, ABC FÖLJDE MED UPP TILL ROOT
     {
       // int curr_dir_id;
       // int* parent_dir_content = (int*)calloc(ROOT_SIZE, sizeof(int));
@@ -1029,8 +1030,6 @@ FS::rm(std::string filepath) //KLAAAAAAAAAAAAAAAAAAAAAAAAAR
 {
     std::cout << "FS::rm(" << filepath << ")\n";
 
-    // TODO REMOVE FROM DIR_CONTENT
-
     int name_found = 0;
     int dir_entry_index;
     for(int i = 0; i < ROOT_SIZE; i++)
@@ -1039,6 +1038,26 @@ FS::rm(std::string filepath) //KLAAAAAAAAAAAAAAAAAAAAAAAAAR
       {
         name_found = 1;
         dir_entry_index = curr_dir_content[i];
+
+        // if folder with content, throw error
+        if(dir_entries[dir_entry_index].type == TYPE_DIR)
+        {
+          int temp_dir_content[BLOCK_SIZE];
+
+          disk.read(dir_entries[dir_entry_index].first_blk, (uint8_t*)temp_dir_content);
+          for(int j = 0; j < ROOT_SIZE; j++)
+          {
+            cout << "temp_dir_content " << temp_dir_content[j] << endl;
+            if (temp_dir_content[j] != -1)
+            {
+              cout << "Empty the directory before removing it." << endl;
+              return -1;
+              
+            }
+          }
+        }
+
+
         // Clear fat
         int blocks_to_read = dir_entries[curr_dir_content[i]].size/BLOCK_SIZE;
         if(dir_entries[curr_dir_content[i]].size%BLOCK_SIZE > 0)
@@ -1098,7 +1117,7 @@ FS::rm(std::string filepath) //KLAAAAAAAAAAAAAAAAAAAAAAAAAR
       return 0;
     }
     
-    // if remove folder, shall we remove content?
+    // if remove folder, shall we remove content? NO!!!
     int parent_dir_content[BLOCK_SIZE];
     disk.read(dir_entries[dir_path.back()].first_blk, (uint8_t*)parent_dir_content);
 
@@ -1449,7 +1468,6 @@ FS::append(std::string filepath1, std::string filepath2) //KLAAAAAAAAAAAAAAAAAAA
     }
 
     // save_curr_dir();
-    std::cout << "FS::create(" << filepath << ")\n";
     return 0;
 }
 
@@ -1586,7 +1604,7 @@ FS::cd(std::string new_dir) // KLAAAAAAAAAAAAAAAAAAAAAAR
     // cout << "1\n";
   if (new_dir == "..")
   {
-// if new directory is ".." then we go up one level.
+  // if new directory is ".." then we go up one level.
     if(dir_path.size() == 0)
     {
       cout << "Can't go futher up, you're at root. \n";
