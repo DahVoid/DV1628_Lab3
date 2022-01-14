@@ -1502,6 +1502,16 @@ FS::mkdir(std::string dirpath) //KLAaaaaaaaaaaaaaaaar
       return 0;
     }
 
+    // check if name already exists in directory
+    for (int i = 0; i < ROOT_SIZE; i++)
+    {
+      if(dir_entries[curr_dir_content[i]].file_name == dirpath)
+      {
+        cout << "Name already exists"<< endl;
+        return -1;
+      }
+    }
+
     int free_spaces[num_blocks];
     int free_space_counter = 0;
     cout << "-2\n";
