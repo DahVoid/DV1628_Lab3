@@ -850,6 +850,20 @@ FS::mv(std::string sourcepath, std::string destpath) //KLAAAAAAAAAAAAAAAAAAAAAAR
 {
     std::cout << "FS::mv(" << sourcepath << "," << destpath << ")\n";
     // IMPÅTANT CHECK IF FILE EXISTS OTHERWISE YOU WILL SEGG
+    //check if sourcepath exists
+    int src_entry_index = -1;
+    for (int i = 0; i < ROOT_SIZE; i++)
+    {
+      if (dir_entries[curr_dir_content[i]].file_name == sourcepath)
+      {
+        src_entry_index = curr_dir_content[i];
+        break;
+      }
+    }
+    if(src_entry_index == -1) {
+      cout << "source cannot not be found\n";
+      return -1;
+    }
 
     if (destpath == "..")
     {
@@ -1078,6 +1092,16 @@ FS::mv(std::string sourcepath, std::string destpath) //KLAAAAAAAAAAAAAAAAAAAAAAR
     // find source file
     for(int i = 0; i < ROOT_SIZE; i++)
     {
+      // check so destpath doesn't exist
+      for( int j = 0; j < ROOT_SIZE; j++)
+      {
+        if(dir_entries[j].file_name == destpath)
+        {
+          cout << "name already exists or is not a directory" << endl;
+          return -1;
+        }
+      }
+
       if(dir_entries[i].file_name == sourcepath)
       {
         strcpy(dir_entries[i].file_name, destpath.c_str());
