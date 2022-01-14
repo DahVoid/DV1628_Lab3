@@ -1178,6 +1178,13 @@ FS::append(std::string filepath1, std::string filepath2) //KLAAAAAAAAAAAAAAAAAAA
       {
         file_found_1 = 1;
         entry_index_1 = i;
+        // check if dir
+        if(dir_entries[entry_index_1].type == TYPE_DIR)
+        {
+          cout << "Cannot not append directory." << endl;
+          return -1;
+        }
+
         blocks_to_read_1 = dir_entries[curr_dir_content[i]].size/BLOCK_SIZE;
         dir_entry_index_1 = curr_dir_content[i];
         // Add rest block if exists
@@ -1214,6 +1221,12 @@ FS::append(std::string filepath1, std::string filepath2) //KLAAAAAAAAAAAAAAAAAAA
         file_found_2 = 1;
         //kanske behöver fixa entry_index
         entry_index_2 = i;
+        // check if dir
+        if(dir_entries[entry_index_2].type == TYPE_DIR)
+        {
+          cout << "Cannot not append directory." << endl;
+          return -1;
+        }
         blocks_to_read_2 = dir_entries[curr_dir_content[i]].size/BLOCK_SIZE;
         dir_entry_index_2 = curr_dir_content[i];
         // Add rest block if exists
