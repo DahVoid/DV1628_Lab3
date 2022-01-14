@@ -511,12 +511,15 @@ FS::cat(std::string filepath) ////KLAAAAAR
       free(read_data);
       return 0;
     } else {
-      int temp_dir_content[64];
-      disk.read(dir_entries[entry_index].first_blk, (uint8_t*)temp_dir_content);
-      for(int i = 0; i < ROOT_SIZE; i++){
-        cout << temp_dir_content[i] << endl;
-      }
-      return 0;
+      
+      cout << "Cannot not cat directory" << endl;
+      // debug code below
+      // int temp_dir_content[64];
+      // disk.read(dir_entries[entry_index].first_blk, (uint8_t*)temp_dir_content);
+      // for(int i = 0; i < ROOT_SIZE; i++){
+      //   cout << temp_dir_content[i] << endl;
+      // }
+      return -1;
     }
 
 
