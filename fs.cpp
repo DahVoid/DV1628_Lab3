@@ -849,7 +849,7 @@ int
 FS::mv(std::string sourcepath, std::string destpath) //KLAAAAAAAAAAAAAAAAAAAAAAR
 {
     std::cout << "FS::mv(" << sourcepath << "," << destpath << ")\n";
-
+    // IMPÅTANT CHECK IF FILE EXISTS OTHERWISE YOU WILL SEGG
 
     if (destpath == "..")
     {
@@ -871,6 +871,20 @@ FS::mv(std::string sourcepath, std::string destpath) //KLAAAAAAAAAAAAAAAAAAAAAAR
           {
             dir_entry_index = curr_dir_content[i];
             break;
+          }
+        }
+
+        //check if other orphan with same name already exists
+        // get orphan lists
+        std::vector<int> root_dir_content;
+        vector<int> temp_dir_path;
+        root_dir_content = init_dir_content(temp_dir_path);
+        for (int i = 0; i < ROOT_SIZE; i++)
+        { 
+          if (sourcepath == dir_entries[root_dir_content[i]].file_name)
+          {
+            cout << "Already an item with the same name in root" << endl; 
+            return -1;
           }
         }
 
@@ -898,6 +912,20 @@ FS::mv(std::string sourcepath, std::string destpath) //KLAAAAAAAAAAAAAAAAAAAAAAR
         }
       }
 
+
+      // get parents dirs
+      int parent_dir_content[BLOCK_SIZE];
+      disk.read(dir_entries[dir_path_temp.back()].first_blk, (uint8_t*)parent_dir_content);
+      //check if parents kids share name
+      for (int i = 0; i < ROOT_SIZE; i++)
+      { 
+        if (sourcepath == dir_entries[parent_dir_content[i]].file_name)
+        {
+          cout << "Already an item with the same name in root" << endl; 
+          return -1;
+        }
+      }
+
       for(int i = 0; i < ROOT_SIZE; i++ )
       {
         if(curr_dir_content[i] == dir_entry_index) 
@@ -906,8 +934,6 @@ FS::mv(std::string sourcepath, std::string destpath) //KLAAAAAAAAAAAAAAAAAAAAAAR
           break;
         }
       }
-      int parent_dir_content[BLOCK_SIZE];
-      disk.read(dir_entries[dir_path_temp.back()].first_blk, (uint8_t*)parent_dir_content);
 
       for(int i = 0; i < ROOT_SIZE; i++) 
       {
@@ -961,20 +987,31 @@ FS::mv(std::string sourcepath, std::string destpath) //KLAAAAAAAAAAAAAAAAAAAAAAR
           }
         }
 
-        for(int i = 0; i < ROOT_SIZE; i++)
-        {
-          if(curr_dir_content[i] == dir_entry_index)
-          {
-            curr_dir_content[i] = -1;
-          }
-        }
+
+
 
         if(dir_path.size() == 0)
         {
           int new_dir_content[BLOCK_SIZE];
           cout << "gonna riid \n";
           disk.read(dir_entries[dir_path_temp.back()].first_blk, (uint8_t*)new_dir_content);
+          // check if name exists in destination
+          for (int i = 0; i < ROOT_SIZE; i++)
+          { 
+            if (sourcepath == dir_entries[new_dir_content[i]].file_name)
+            {
+              cout << "Already an item with the same name in root" << endl; 
+              return -1;
+            }
+          }
 
+          for(int i = 0; i < ROOT_SIZE; i++)
+          {
+            if(curr_dir_content[i] == dir_entry_index)
+            {
+              curr_dir_content[i] = -1;
+            }
+          }
           cout << "starting loop 3" << endl;
           for(int i = 0; i < ROOT_SIZE; i++)
           {
@@ -995,11 +1032,31 @@ FS::mv(std::string sourcepath, std::string destpath) //KLAAAAAAAAAAAAAAAAAAAAAAR
 
         cout << dir_entries[dir_path.back()].first_blk << endl;
 
-        disk.write(dir_entries[dir_path.back()].first_blk, (uint8_t*)curr_dir_content);
-
         int new_dir_content[BLOCK_SIZE];
         cout << "gonna riid \n";
+
         disk.read(dir_entries[dir_path_temp.back()].first_blk, (uint8_t*)new_dir_content);
+        // check if name exists in the new directory
+        for (int i = 0; i < ROOT_SIZE; i++)
+        { 
+          if (sourcepath == dir_entries[new_dir_content[i]].file_name)
+          {
+            cout << "Already an item with the same name in root" << endl; 
+            return -1;
+          }
+        }
+
+        // gotta move after dupe check
+        for(int i = 0; i < ROOT_SIZE; i++)
+        {
+          if(curr_dir_content[i] == dir_entry_index)
+          {
+            curr_dir_content[i] = -1;
+          }
+        }
+
+        disk.write(dir_entries[dir_path.back()].first_blk, (uint8_t*)curr_dir_content);
+
 
         cout << "starting loop 3" << endl;
         for(int i = 0; i < ROOT_SIZE; i++)
