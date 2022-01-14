@@ -574,6 +574,13 @@ FS::cp(std::string sourcepath, std::string destpath) ////KLAAAAAAAAAAAAAAAAAAAAA
       }
     }
 
+    // check if source is directory
+      if(dir_entries[dir_entry_index].type == TYPE_DIR) {
+        cout << "Cannot copy a directory." << endl;
+        return -1;
+      }
+
+
     for(int i = 0; i < ROOT_SIZE; i++)
     {
       if (dir_entries[i].file_name == destpath)
