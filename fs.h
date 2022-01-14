@@ -37,9 +37,9 @@ private:
     Disk disk;
     // size of a FAT entry is 2 bytes
     int16_t fat[BLOCK_SIZE/2];
-    int * init_dir_content(vector<string> path);
+    std::vector<int> init_dir_content(vector<int> path);
     int file_fit_check(int num_blocks);
-    int get_parent_index(vector<string> path);
+    // int get_parent_index(vector<int> path);
     void save_curr_dir();
 public:
     FS();
