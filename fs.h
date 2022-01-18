@@ -42,6 +42,8 @@ private:
     // int get_parent_index(vector<int> path);
     void save_curr_dir();
     int accessrights_check(int dir_entry_index, int accessrights);
+    std::vector<int> string_to_vector_converter(string destpath, int from_create = 0);
+
 public:
     FS();
     ~FS();
