@@ -22,7 +22,7 @@ struct membuf : std::streambuf
 };
 
 //SKA KUNNA HANTERA .. i path A/../B
-std::vector<int> FS::string_to_vector_converter(string destpath, int from_rm)
+std::vector<int> FS::string_to_vector_converter(string destpath, int from_rm, int from_cd)
 {
   std::vector<int> dir_path_temp = dir_path;
   std::vector<int> path;
@@ -61,6 +61,7 @@ std::vector<int> FS::string_to_vector_converter(string destpath, int from_rm)
   int counter_stop = path_str.size();
   cout << "counter_stop= " << counter_stop << "\n";
   int counter = 0;
+  int depth_counter = 0;
   string dir_to_find;
   for (int i = 0; i < counter_stop; i++)
   {
@@ -71,6 +72,15 @@ std::vector<int> FS::string_to_vector_converter(string destpath, int from_rm)
     if (dir_to_find == "..")
     {
       counter++;
+      depth_counter++;
+      if(depth_counter > dir_path.size())
+      {
+        cout << "depth_counter= " << depth_counter << "\n";
+        std::vector<int> return_path;
+        return_path.push_back(-1);
+        return return_path;
+
+      }
       cout << "in .. \n";
       dir_path_temp.resize(dir_path_temp.size() - 1);
       cout << "dir_path_temp.size(): " << dir_path_temp.size() << "\n";
@@ -104,7 +114,7 @@ std::vector<int> FS::string_to_vector_converter(string destpath, int from_rm)
       if (dir_entries[temp_dir_content[j]].file_name == dir_to_find && dir_entries[temp_dir_content[j]].type == TYPE_DIR)
       {
         //if folder then break
-        if((dir_entries[temp_dir_content[j]].type == TYPE_DIR && counter_stop - counter == 1 )) 
+        if((dir_entries[temp_dir_content[j]].type == TYPE_DIR && counter_stop - counter == 1 ) && from_cd == 0) 
         {
           cout << "Last item in path is folder. "  << endl;
           return dir_path_temp;
@@ -358,6 +368,14 @@ FS::create(std::string filepath) //KLAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
     int start_block;
     cout << "1\n";
     std::vector<int> dir_path_temp = string_to_vector_converter(filepath);
+    if (dir_path_temp.size() >= 1)
+    {
+      if(dir_path_temp.back() == -1)
+      {
+        cout << "error cant go above root" << endl;
+        return -1;
+      }
+    }
     std::vector<int> dir_path_temp_temp = dir_path;
     int temp_curr_dir_content[BLOCK_SIZE];
 
@@ -576,6 +594,14 @@ FS::cat(std::string filepath) //KLAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
     int file_found = 0;
 
     std::vector<int> dir_path_temp = string_to_vector_converter(filepath);
+    if (dir_path_temp.size() >= 1)
+    {
+      if(dir_path_temp.back() == -1)
+      {
+        cout << "error cant go above root" << endl;
+        return -1;
+      }
+    }
     std::vector<int> dir_path_temp_temp = dir_path;
     int temp_curr_dir_content[BLOCK_SIZE];
 
@@ -691,7 +717,7 @@ FS::cat(std::string filepath) //KLAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 
 // ls lists the content in the currect directory (files and sub-directories)
 int
-FS::ls() ////KLAR FÖR ROOTEN MEN INTE FÖR DJUP
+FS::ls() ////KLAR
 {
   cout << "name" << setw(15) << "type" << setw(15) << "accessrights" << setw(15) << "size" << "\n";
   for (int i = 0; i < sizeof(curr_dir_content)/sizeof(curr_dir_content[0]); i++)
@@ -768,6 +794,14 @@ FS::cp(std::string sourcepath, std::string destpath) //KLAAAAAAAAAAAAAAAAAAAAAAA
 
     //SOURCE
     std::vector<int> dir_path_temp_source = string_to_vector_converter(sourcepath);
+    if (dir_path_temp_source.size() >= 1)
+    {
+      if(dir_path_temp_source.back() == -1)
+      {
+        cout << "error cant go above root" << endl;
+        return -1;
+      }
+    }
     std::vector<int> dir_path_temp_temp_source = dir_path;
     int temp_curr_dir_content_source[BLOCK_SIZE];
 
@@ -804,6 +838,14 @@ FS::cp(std::string sourcepath, std::string destpath) //KLAAAAAAAAAAAAAAAAAAAAAAA
 
     //DEST
     std::vector<int> dir_path_temp = string_to_vector_converter(destpath);
+    if (dir_path_temp.size() >= 1)
+    {
+      if(dir_path_temp.back() == -1)
+      {
+        cout << "error cant go above root" << endl;
+        return -1;
+      }
+    }
     std::vector<int> dir_path_temp_temp = dir_path;
     int temp_curr_dir_content[BLOCK_SIZE];
 
@@ -1094,6 +1136,14 @@ FS::mv(std::string sourcepath, std::string destpath) //KLAAAAAAAAAAAAAAAAAAAAAAA
 
   //SOURCEPATH
   std::vector<int> dir_path_temp_source = string_to_vector_converter(sourcepath);
+  if (dir_path_temp_source.size() >= 1)
+  {
+    if(dir_path_temp_source.back() == -1)
+    {
+      cout << "error cant go above root" << endl;
+      return -1;
+    }
+  }
   std::vector<int> dir_path_temp_temp_source = dir_path;
   int temp_curr_dir_content_source[BLOCK_SIZE];
 
@@ -1107,7 +1157,7 @@ FS::mv(std::string sourcepath, std::string destpath) //KLAAAAAAAAAAAAAAAAAAAAAAA
 
   if (dir_path_temp_source.size() != dir_path.size() || dir_path_temp_source != dir_path)
   {
-      cout << "1.2\n";
+    cout << "1.2\n";
     dir_path_temp_temp_source = dir_path_temp_source;
     disk.read(dir_entries[dir_path_temp_temp_source.back()].first_blk, (uint8_t*)temp_curr_dir_content_source);
 
@@ -1134,6 +1184,14 @@ FS::mv(std::string sourcepath, std::string destpath) //KLAAAAAAAAAAAAAAAAAAAAAAA
 
   //DESTPATH
   std::vector<int> dir_path_temp_dest = string_to_vector_converter(destpath);
+  if (dir_path_temp_dest.size() >= 1)
+  {
+    if(dir_path_temp_dest.back() == -1)
+    {
+      cout << "error cant go above root" << endl;
+      return -1;
+    }
+  }
   std::vector<int> dir_path_temp_temp_dest = dir_path;
   int temp_curr_dir_content_dest[BLOCK_SIZE];
 
@@ -1541,9 +1599,17 @@ FS::mv(std::string sourcepath, std::string destpath) //KLAAAAAAAAAAAAAAAAAAAAAAA
 
 // rm <filepath> removes / deletes the file <filepath>
 int
-FS::rm(std::string filepath, int from_append) // WIP
+FS::rm(std::string filepath, int from_append) // KLAAAAAAAAAAAAAAAAAAAAAAAAAAAR
 {
     std::vector<int> dir_path_temp = string_to_vector_converter(filepath);
+    if (dir_path_temp.size() >= 1)
+    {
+      if(dir_path_temp.back() == -1)
+      {
+        cout << "error cant go above root" << endl;
+        return -1;
+      }
+    }
     std::vector<int> dir_path_temp_temp = dir_path;
     int temp_curr_dir_content[BLOCK_SIZE];
     
@@ -1646,7 +1712,6 @@ FS::rm(std::string filepath, int from_append) // WIP
 
     // is not relative
     cout << "3\n";
-    cout << dir_path_temp_temp.back() << endl;
     int name_found = 0;
     int dir_entry_index;
     for(int i = 0; i < ROOT_SIZE; i++)
@@ -1783,6 +1848,14 @@ FS::append(std::string filepath1, std::string filepath2) //funkar i root
 
     //FILE 1
     std::vector<int> dir_path_temp1 = string_to_vector_converter(filepath1);
+    if (dir_path_temp1.size() >= 1)
+    {
+      if(dir_path_temp1.back() == -1)
+      {
+        cout << "error cant go above root" << endl;
+        return -1;
+      }
+    }
     std::vector<int> dir_path_temp_temp1 = dir_path;
     int temp_curr_dir_content1[BLOCK_SIZE];
 
@@ -1821,6 +1894,14 @@ FS::append(std::string filepath1, std::string filepath2) //funkar i root
     cout << "2\n";
     //FILE 2
     std::vector<int> dir_path_temp2 = string_to_vector_converter(filepath2);
+    if (dir_path_temp2.size() >= 1)
+    {
+      if(dir_path_temp2.back() == -1)
+      {
+        cout << "error cant go above root" << endl;
+        return -1;
+      }
+    }
     std::vector<int> dir_path_temp_temp2 = dir_path;
     int temp_curr_dir_content2[BLOCK_SIZE];
 
@@ -2160,6 +2241,14 @@ FS::mkdir(std::string dirpath) //Probably klar
     int num_blocks = 1;
     cout << "1\n";
     std::vector<int> dir_path_temp = string_to_vector_converter(dirpath);
+  if (dir_path_temp.size() >= 1)
+  {
+    if(dir_path_temp.back() == -1)
+    {
+      cout << "error cant go above root" << endl;
+      return -1;
+    }
+  }
     std::vector<int> dir_path_temp_temp = dir_path;
     int temp_curr_dir_content[BLOCK_SIZE];
     cout << "2\n";
@@ -2357,7 +2446,16 @@ FS::cd(std::string new_dir) //KLAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAR
   //   return 0;
   // }
   // cout << "1\n";
-  std::vector<int> dir_path_temp = string_to_vector_converter(new_dir);
+  std::vector<int> dir_path_temp = string_to_vector_converter(new_dir, 0, 1);
+  if (dir_path_temp.size() >= 1)
+  {
+    if(dir_path_temp.back() == -1)
+    {
+      cout << "error cant go above root" << endl;
+      return -1;
+    }
+  }
+  
   std::vector<int> dir_path_temp_temp = dir_path;
   int temp_curr_dir_content[BLOCK_SIZE];
 
