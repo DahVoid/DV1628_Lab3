@@ -8,6 +8,8 @@
 
 
 
+
+
 * Append abc a/def ;
 
 ## Solved issues:
@@ -22,3 +24,6 @@
 
 * RM a/def ; Seg fault  
     -dum cout
+
+* Append abc a/def skapar dubbla def 
+    - Satte if relative check där vi skriver till disken, orskas av att vi inte refresha mappens innehåll emellan.
