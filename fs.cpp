@@ -1232,8 +1232,13 @@ FS::mv(std::string sourcepath, std::string destpath) //KLAAAAAAAAAAAAAAAAAAAAAAA
       {
         if (dir_entries[curr_dir_content[i]].file_name == sourcepath)
         {
-        curr_dir_content[i] = -1;
-        break;
+          if(dir_entries[curr_dir_content[i]].type == TYPE_FILE)
+          {
+            cout << "A file is not a valid destination ´\n";
+            return -1;
+          }
+          curr_dir_content[i] = -1;
+          break;
         }
       }
 

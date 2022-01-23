@@ -2,15 +2,7 @@
 
 ## Current Issues:
 
-* cd ../.. i mappen a dör i str to vector. Borde ge felmeddelande istället.
-
 * Vi har /abc och /a/def. append def ../abc get seg fault
-
-
-
-
-
-* Append abc a/def ;
 
 ## Solved issues:
 * RM relative path
@@ -27,3 +19,7 @@
 
 * Append abc a/def skapar dubbla def 
     - Satte if relative check där vi skriver till disken, orskas av att vi inte refresha mappens innehåll emellan.
+
+
+* cd ../.. i mappen a dör i str to vector. Borde ge felmeddelande istället.
+    - Felmeddelande.
