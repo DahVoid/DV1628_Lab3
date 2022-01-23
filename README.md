@@ -4,6 +4,8 @@
 
 * Vi har /abc och /a/def. append def ../abc get seg fault
 
+* mv a/abc b ; seg fault
+
 
 
 ## Solved issues:
