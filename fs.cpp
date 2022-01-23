@@ -925,7 +925,7 @@ FS::cp(std::string sourcepath, std::string destpath) //KLAAAAAAAAAAAAAAAAAAAAAAA
 
     for(int i = 0; i < ROOT_SIZE; i++)
     {
-      if (dir_entries[temp_curr_dir_content_source[i]].file_name == destpath)
+      if (dir_entries[temp_curr_dir_content[i]].file_name == destpath)
       {
         cout << "A file with that name already exists in this directory, try again\n";
         return 0;
@@ -1067,31 +1067,32 @@ FS::cp(std::string sourcepath, std::string destpath) //KLAAAAAAAAAAAAAAAAAAAAAAA
       }
     }
 
-    for(int i = 0; i < ROOT_SIZE; i++)
-    {
-      if (temp_curr_dir_content[i] == -1)
+      for(int i = 0; i < ROOT_SIZE; i++)
       {
-        temp_curr_dir_content[i] = dir_entry_index;
-        if(dir_path_temp == dir_path)
+        if (temp_curr_dir_content[i] == -1)
         {
-          curr_dir_content[i] = dir_entry_index;
+          temp_curr_dir_content[i] = dir_entry_index;
+          if(dir_path_temp == dir_path)
+          {
+            curr_dir_content[i] = dir_entry_index;
+          }
+          break;
         }
-        break;
       }
-    }
 
-    for(int i = 0; i < ROOT_SIZE; i++)
-    {
-      if (temp_curr_dir_content_source[i] == -1)
+      for(int i = 0; i < ROOT_SIZE; i++)
       {
-        temp_curr_dir_content_source[i] = dir_entry_index;
-        if(dir_path_temp == dir_path)
+        if (temp_curr_dir_content_source[i] == -1)
         {
-          curr_dir_content[i] = dir_entry_index;
+          temp_curr_dir_content_source[i] = dir_entry_index;
+          if(dir_path_temp_source == dir_path)
+          {
+            curr_dir_content[i] = dir_entry_index;
+          }
+          break;
         }
-        break;
       }
-    }
+    
 
     disk.write(ROOT_BLOCK, (uint8_t*)dir_entries); // dir_entries in the file
 

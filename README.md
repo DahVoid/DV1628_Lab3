@@ -4,6 +4,8 @@
 
 * Vi har /abc och /a/def. append def ../abc get seg fault
 
+
+
 ## Solved issues:
 * RM relative path
     - använde filepath istället för temp_dir_nånting
@@ -23,3 +25,6 @@
 
 * cd ../.. i mappen a dör i str to vector. Borde ge felmeddelande istället.
     - Felmeddelande.
+
+* cp abc a/abc - A file with that name already exists in this directory, try again
+    - Kolla för destination 
