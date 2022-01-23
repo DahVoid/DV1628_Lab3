@@ -842,13 +842,12 @@ FS::cp(std::string sourcepath, std::string destpath) //KLAAAAAAAAAAAAAAAAAAAAAAA
     if (dir_path_temp_source.size() != dir_path.size() || dir_path_temp_source != dir_path)
     {
       dir_path_temp_temp_source = dir_path_temp_source;
-
-      if (dir_path_temp.size() != 0)
+      if (dir_path_temp_source.size() != 0)
       {
         disk.read(dir_entries[dir_path_temp_temp_source.back()].first_blk, (uint8_t*)temp_curr_dir_content_source);
       }
 
-      if (dir_path_temp.size() == 0)
+      if (dir_path_temp_source.size() == 0)
       {
         std::vector<int> root_content;
         root_content = init_dir_content(root_content);
@@ -863,7 +862,7 @@ FS::cp(std::string sourcepath, std::string destpath) //KLAAAAAAAAAAAAAAAAAAAAAAA
         {
           temp_curr_dir_content_source[p] = root_content[p];
         }
-      
+      }
       //Ful lösning för att hitta namnet
       std::vector<int> dir_path_name_find = dir_path;
       std::vector<int> path;
@@ -906,7 +905,6 @@ FS::cp(std::string sourcepath, std::string destpath) //KLAAAAAAAAAAAAAAAAAAAAAAA
     if (dir_path_temp.size() != dir_path.size() || dir_path_temp != dir_path)
     {
       dir_path_temp_temp = dir_path_temp;
-
       if (dir_path_temp.size() != 0)
       {
         disk.read(dir_entries[dir_path_temp_temp.back()].first_blk, (uint8_t*)temp_curr_dir_content);
@@ -927,7 +925,7 @@ FS::cp(std::string sourcepath, std::string destpath) //KLAAAAAAAAAAAAAAAAAAAAAAA
         {
           temp_curr_dir_content[p] = root_content[p];
         }
-      
+      }
       //Ful lösning för att hitta namnet
       std::vector<int> dir_path_name_find = dir_path;
       std::vector<int> path;
@@ -2869,8 +2867,6 @@ FS::chmod(std::string accessrights, std::string filepath) // Inte klar
 {
     std::cout << "FS::chmod(" << accessrights << "," << filepath << ")\n";
 
-
-
     for(int i = 0; i < ROOT_SIZE; i++)
     {
       cout << "fat: "<< fat[i] << endl;
@@ -2881,14 +2877,66 @@ FS::chmod(std::string accessrights, std::string filepath) // Inte klar
     cout << "dir_name: " << dir_entries[i].file_name << endl;
     }
 
+    std::vector<int> dir_path_temp = string_to_vector_converter(filepath);
+    std::vector<int> dir_path_temp_temp = dir_path;
+    int temp_curr_dir_content[BLOCK_SIZE];
+
+    //relative path
+    if (dir_path_temp.size() != dir_path.size() || dir_path_temp != dir_path)
+    {
+      dir_path_temp_temp = dir_path_temp;
+      cout << dir_path_temp_temp.back() << "\n";
+
+      if (dir_path_temp.size() != 0)
+      {
+      disk.read(dir_entries[dir_path_temp_temp.back()].first_blk, (uint8_t*)temp_curr_dir_content);
+      }
+
+      if (dir_path_temp.size() == 0)
+      {
+        std::vector<int> root_content;
+        root_content = init_dir_content(root_content);
+        int dir_content[ROOT_SIZE];
+
+        for (int l = 0; l < ROOT_SIZE; l++)
+        {
+          temp_curr_dir_content[l] = 0;
+        }
+
+        for (int p = 0; p < root_content.size(); p++)
+        {
+          temp_curr_dir_content[p] = root_content[p];
+        }
+      }
+
+      //Ful lösning för att hitta namnet
+      std::vector<int> dir_path_name_find = dir_path;
+      std::vector<int> path;
+      std::vector<string> path_str;
+      string dir;
+      char delimiter = '/';
+      int temp_dir_content[BLOCK_SIZE];
+      int filepath_size = filepath.length();
+      char filepath_char[filepath_size];
+      strcpy(filepath_char, filepath.c_str());
+
+      membuf sbuf(filepath_char, filepath_char + sizeof(filepath_char));
+      istream in(&sbuf);
+
+      while (getline(in, dir, delimiter))
+      {
+        path_str.push_back(dir);
+      }
+      filepath = path_str.back();
+    }
 
     //find file
     int file_index = -1;
     for (int i = 0; i < 64; i++)
     {
-      if (dir_entries[curr_dir_content[i]].file_name == filepath)
+      if (dir_entries[temp_curr_dir_content[i]].file_name == filepath)
       {
-        file_index = curr_dir_content[i];
+        file_index = temp_curr_dir_content[i];
         break;
       }
     }
