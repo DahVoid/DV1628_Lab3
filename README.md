@@ -6,6 +6,10 @@
 
 * Vi har /abc och /a/def. append def ../abc get seg fault
 
+
+
+* Append abc a/def ;
+
 ## Solved issues:
 * RM relative path
     - använde filepath istället för temp_dir_nånting
@@ -15,3 +19,6 @@
     - hade en cout på dir_path_temp_temp.back(), men den är tom eftersom att vi är i rooten.
 * cd c/d tar en bara till c, verka vara pga Last item in path is folder.
     - Lade till en inparameter from_cd till funktionen så att vi undviker fallet.
+
+* RM a/def ; Seg fault  
+    -dum cout

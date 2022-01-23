@@ -65,6 +65,7 @@ std::vector<int> FS::string_to_vector_converter(string destpath, int from_rm, in
   string dir_to_find;
   for (int i = 0; i < counter_stop; i++)
   {
+    cout << "path i is now: " << path_str[i] << endl;
     dir_to_find = path_str[i];
     cout << path_str[i] << "\n";
 
@@ -150,6 +151,10 @@ std::vector<int> FS::string_to_vector_converter(string destpath, int from_rm, in
       }
     }
     dir_path_temp.push_back(dir_to_append);
+  }
+  for(int i = 0; i < dir_path_temp.size(); i++)
+  {
+    cout << dir_path_temp[i] << endl;
   }
   cout << "exiting\n";
   return dir_path_temp;
@@ -1371,7 +1376,7 @@ FS::mv(std::string sourcepath, std::string destpath) //KLAAAAAAAAAAAAAAAAAAAAAAA
   cout << "4\n";
   //find index of sourcefile
   int dir_entry_index;
-  for (int i = 0; i < ROOT_SIZE; i++)
+  for (int i = 0; i < ROOT_SIZE; i++) // possible dupe
   {
     if (dir_entries[curr_dir_content[i]].file_name == sourcepath)
     {
@@ -1502,6 +1507,7 @@ FS::mv(std::string sourcepath, std::string destpath) //KLAAAAAAAAAAAAAAAAAAAAAAA
         }
         cout << "9\n";
         int new_dir_content[BLOCK_SIZE];
+        cout << "dir_path_find.back = " << dir_path_find.back() << endl;
         disk.read(dir_entries[dir_path_find.back()].first_blk, (uint8_t*)new_dir_content);
         // check if name exists in destination
         for (int i = 0; i < ROOT_SIZE; i++)
@@ -1623,7 +1629,7 @@ FS::rm(std::string filepath, int from_append) // KLAAAAAAAAAAAAAAAAAAAAAAAAAAAR
     {
       cout << "is relative \n";
       cout << "path temp: " << dir_path_temp.back() << endl;
-      cout << "path temp temp: " << dir_path_temp_temp.back() << endl;
+      //cout << "path temp temp: " << dir_path_temp_temp.back() << endl;
       dir_path_temp_temp = dir_path_temp;
       cout << "path temp temp: " << dir_path_temp_temp.back() << endl;
       cout << "filename: " << dir_entries[dir_path_temp_temp.back()].file_name << endl;
@@ -1845,9 +1851,11 @@ int
 FS::append(std::string filepath1, std::string filepath2) //funkar i root
 {
     std::cout << "FS::append(" << filepath1 << "," << filepath2 << ")\n";
-
+    string filepath2_backup = filepath2;
+    string filepath1_backup = filepath1;
     //FILE 1
     std::vector<int> dir_path_temp1 = string_to_vector_converter(filepath1);
+    cout << "saijs " << dir_path_temp1.size() << endl;
     if (dir_path_temp1.size() >= 1)
     {
       if(dir_path_temp1.back() == -1)
@@ -1868,7 +1876,7 @@ FS::append(std::string filepath1, std::string filepath2) //funkar i root
 
     if (dir_path_temp1.size() != dir_path.size() || dir_path_temp1 != dir_path)
     {
-      std::vector<int> dir_path_temp_temp1 = dir_path_temp1;
+      dir_path_temp_temp1 = dir_path_temp1;
       disk.read(dir_entries[dir_path_temp_temp1.back()].first_blk, (uint8_t*)temp_curr_dir_content1);
 
       //Ful lösning för att hitta namnet
@@ -1894,6 +1902,7 @@ FS::append(std::string filepath1, std::string filepath2) //funkar i root
     cout << "2\n";
     //FILE 2
     std::vector<int> dir_path_temp2 = string_to_vector_converter(filepath2);
+    cout << "CONVERTED FILE TVå" << endl;
     if (dir_path_temp2.size() >= 1)
     {
       if(dir_path_temp2.back() == -1)
@@ -1909,12 +1918,15 @@ FS::append(std::string filepath1, std::string filepath2) //funkar i root
     {
       temp_curr_dir_content2[r] = curr_dir_content[r];
     }
+    cout << "dirpath temp 2 sajs: " << dir_path_temp2.size() << endl;
+    cout << "dirpath temp 2 back: " << dir_path_temp2.back() << endl;
+    cout << "dirpath sajs: " << dir_path.size() << endl;
 
     if (dir_path_temp2.size() != dir_path.size() || dir_path_temp2 != dir_path)
     {
-      std::vector<int> dir_path_temp_temp2 = dir_path_temp2;
+      cout << "Entered is relative path2" << endl;
+      dir_path_temp_temp2 = dir_path_temp2;
       disk.read(dir_entries[dir_path_temp_temp2.back()].first_blk, (uint8_t*)temp_curr_dir_content2);
-
       //Ful lösning för att hitta namnet
       std::vector<int> dir_path_name_find = dir_path;
       std::vector<int> path;
@@ -1934,8 +1946,9 @@ FS::append(std::string filepath1, std::string filepath2) //funkar i root
         path_str.push_back(dir);
       }
       filepath2 = path_str.back();
+      cout <<"filepath 2: " << filepath2 << endl;
     }
-
+    cout <<"filepath 2 AGAIN: " << filepath2 << endl;
     cout << "3\n";
     // *""*""*""*""*"" FIND FILES *""*""*""*""*""**
     //File 1
@@ -1970,7 +1983,7 @@ FS::append(std::string filepath1, std::string filepath2) //funkar i root
         break;
       }
     }
-        cout << "6\n";
+    cout << "6\n";
     if (file_found_1 == 0)
     {
       cout << "No file with that name found, try again\n";
@@ -1987,14 +2000,14 @@ FS::append(std::string filepath1, std::string filepath2) //funkar i root
     int blocks_to_read_2;
     int entry_index_2;
     int file_found_2 = 0;
-            cout << "6.1\n";
+    cout << "6.1\n";
     // Find file
 
     for(int i = 0; i < ROOT_SIZE; i++)
     {
       if(dir_entries[temp_curr_dir_content2[i]].file_name == filepath2)
       {
-                cout << "6.2\n";
+        cout << "6.2\n";
         file_found_2 = 1;
         entry_index_2 = temp_curr_dir_content2[i];
         // check if dir
@@ -2120,7 +2133,8 @@ FS::append(std::string filepath1, std::string filepath2) //funkar i root
     }
 
     // *""*""*""*""*"" REMOVE FILE 2 *""*""*""*""*""**
-    rm(filepath2 , 2);
+    cout << "calling rm from append, file path: "<< filepath2 << endl;
+    rm(filepath2_backup , 2); // skicka in den hela pathen, inte ombyggda
 
     int free_spaces[num_blocks];
     int free_space_counter = 0;
@@ -2200,7 +2214,7 @@ FS::append(std::string filepath1, std::string filepath2) //funkar i root
         break;
       }
     }
-                cout << "14\n";
+    cout << "14\n";
     for( int i = 0; i < ROOT_SIZE; i++)
     {
       if (temp_curr_dir_content2[i] == -1)
@@ -2216,17 +2230,26 @@ FS::append(std::string filepath1, std::string filepath2) //funkar i root
 
     disk.write(ROOT_BLOCK, (uint8_t*)dir_entries);
 
+    cout << "dir_path_temp2 sajs: "<< dir_path_temp_temp2.size() << endl;
     if(dir_path_temp_temp2.size() == 0)
     {
+      
       return 0;
     }
-                cout << "15\n";
+    cout << "15\n";
     //REMOVING THIS PRINT CAUSES THE CODE TO SEGFAULT
     /**DONT TOUCH**/ cout << endl; //DONT TOUCH
     //REMOVING THIS PRINT CAUSES THE CODE TO SEGFAULT
-
-    if (dir_path_temp_temp2.size() != 1)
+    cout << "gonna save changes \n";
+    cout << dir_path_temp_temp2.back() << endl;
+    cout << dir_path_temp_temp2.size() << endl;
+    for(int i =  0; i < ROOT_SIZE; i++)
     {
+      cout << temp_curr_dir_content2[i] << endl;
+    }
+    if (dir_path_temp_temp2.size() != 0)
+    {
+
       int block_to_write = dir_entries[dir_path_temp_temp2.back()].first_blk;
       disk.write(block_to_write, (uint8_t*)temp_curr_dir_content2);
     }
