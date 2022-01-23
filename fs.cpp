@@ -1662,7 +1662,28 @@ FS::rm(std::string filepath, int from_append) // KLAAAAAAAAAAAAAAAAAAAAAAAAAAAR
       cout << "filename: " << dir_entries[dir_path_temp_temp.back()].file_name << endl;
       cout << "blk: "  << dir_entries[dir_path_temp_temp.back()].first_blk << endl;
       // satsen nedan läser in fel block vid mapp sök
-      disk.read(dir_entries[dir_path_temp_temp.back()].first_blk, (uint8_t*)temp_curr_dir_content);
+
+      if (dir_path_temp.size() != 0)
+      {
+        disk.read(dir_entries[dir_path_temp_temp.back()].first_blk, (uint8_t*)temp_curr_dir_content);
+      }
+
+      if (dir_path_temp.size() == 0)
+      {
+        std::vector<int> root_content;
+        root_content = init_dir_content(root_content);
+        int dir_content[ROOT_SIZE];
+
+        for (int l = 0; l < ROOT_SIZE; l++)
+        {
+          temp_curr_dir_content[l] = 0;
+        }
+
+        for (int p = 0; p < root_content.size(); p++)
+        {
+          temp_curr_dir_content[p] = root_content[p];
+        }
+      }
 
       //Ful lösning för att hitta namnet
       std::vector<int> dir_path_name_find = dir_path;
