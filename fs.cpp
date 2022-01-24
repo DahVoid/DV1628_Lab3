@@ -3118,8 +3118,3 @@ FS::chmod(std::string accessrights, std::string filepath) // Inte klar
     disk.write(ROOT_BLOCK, (uint8_t*)dir_entries);
     return 0;
 }
-
-//KVAR ATT IMPLEMENTERA
-//1. chmod
-//2. pwd
-//3.
