@@ -37,10 +37,13 @@ private:
     Disk disk;
     // size of a FAT entry is 2 bytes
     int16_t fat[BLOCK_SIZE/2];
-    int * init_dir_content(vector<string> path);
+    std::vector<int> init_dir_content(vector<int> path);
     int file_fit_check(int num_blocks);
-    int get_parent_index(vector<string> path);
+    // int get_parent_index(vector<int> path);
     void save_curr_dir();
+    int accessrights_check(int dir_entry_index, int accessrights);
+    std::vector<int> string_to_vector_converter(string destpath, int from_create = 0, int from_cd = 0);
+
 public:
     FS();
     ~FS();
@@ -61,7 +64,7 @@ public:
     // or moves the file <sourcepath> to the directory <destpath> (if dest is a directory)
     int mv(std::string sourcepath, std::string destpath);
     // rm <filepath> removes / deletes the file <filepath>
-    int rm(std::string filepath);
+    int rm(std::string filepath, int from_append = 1);
     // append <filepath1> <filepath2> appends the contents of file <filepath1> to
     // the end of file <filepath2>. The file <filepath1> is unchanged.
     int append(std::string filepath1, std::string filepath2);

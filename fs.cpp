@@ -3,14 +3,189 @@
 #include <cstring>
 #include <vector>
 #include <typeinfo> // for debugging
+#include <iomanip>
+#include <istream>
+#include <streambuf>
 using namespace std;
 
 struct dir_entry dir_entries[ROOT_SIZE];
-vector<string> dir_path{""};
+vector<int> dir_path;
 int curr_dir_content[ROOT_SIZE];
  // Array of dir_entries indexes mapping our folder content to the dir_entries array.
 
-int FS::file_fit_check(int num_blocks)
+struct membuf : std::streambuf
+{
+    membuf(char* begin, char* end)
+    {
+        this->setg(begin, begin, end);
+    }
+};
+
+//SKA KUNNA HANTERA .. i path A/../B
+std::vector<int> FS::string_to_vector_converter(string destpath, int from_rm, int from_cd)
+{
+  std::vector<int> dir_path_temp = dir_path;
+  std::vector<int> path;
+  std::vector<string> path_str;
+  string dir;
+  char delimiter = '/';
+  int temp_dir_content[BLOCK_SIZE];
+  int destpath_size = destpath.length();
+  char destpath_char[destpath_size];
+  strcpy(destpath_char, destpath.c_str());
+
+  membuf sbuf(destpath_char, destpath_char + sizeof(destpath_char));
+  istream in(&sbuf);
+
+  for (int i = 0; i < ROOT_SIZE; i++)
+  {
+    temp_dir_content[i] = curr_dir_content[i];
+  }
+
+  while (getline(in, dir, delimiter))
+  {
+    path_str.push_back(dir);
+  }
+
+  // for (int i = 0; i < path_str.size(); i++)
+  // {
+  //     cout << "path_string: "<< path_str[path_str.size() - i] <<"\n";
+  // }
+  if (path_str.size() == 1)
+  {
+    cout << "dir_path_temp.size(): " << dir_path_temp.size() << "\n";
+    cout << "le relative path\n";
+    return dir_path_temp;
+  }
+
+  int counter_stop = path_str.size();
+  cout << "counter_stop= " << counter_stop << "\n";
+  int counter = 0;
+  int depth_counter = 0;
+  string dir_to_find;
+  for (int i = 0; i < counter_stop; i++)
+  {
+    cout << "path i is now: " << path_str[i] << endl;
+    dir_to_find = path_str[i];
+
+    if (dir_to_find == "..")
+    {
+      counter++;
+      depth_counter++;
+
+      if(depth_counter > dir_path.size())
+      {
+        cout << "depth_counter= " << depth_counter << "\n";
+        std::vector<int> return_path;
+        return_path.push_back(-1);
+        return return_path;
+      }
+
+      cout << "in .. \n";
+      dir_path_temp.resize(dir_path_temp.size() - 1);
+      cout << "dir_path_temp.size(): " << dir_path_temp.size() << "\n";
+      if (dir_path_temp.size() == 0)
+      {
+        std::vector<int> root_dir_content;
+        root_dir_content = init_dir_content(dir_path_temp);
+        for(int i = 0; i < ROOT_SIZE; i++)
+        {
+          cout << "root_dir_content[i]: " << root_dir_content[i] << "\n";
+          temp_dir_content[i] = root_dir_content[i];
+        }
+        continue;
+      }
+      disk.read(dir_entries[dir_path_temp.back()].first_blk, (uint8_t*)temp_dir_content);
+      if (counter == counter_stop)
+      {
+        for (int i = 0; i < dir_path_temp.size(); i++)
+        {
+            cout << "dirpath_temp: "<< dir_path_temp[i] <<"\n";
+            cout << "dirpath_size: "<< dir_path_temp.size() <<"\n";
+        }
+        cout << "exiting\n";
+        return dir_path_temp;
+      }
+      continue;
+    }
+
+    for (int j = 0; j < ROOT_SIZE; j++)
+    {
+      if (dir_entries[temp_dir_content[j]].file_name == dir_to_find && dir_entries[temp_dir_content[j]].type == TYPE_DIR)
+      {
+        //if folder then break
+        // if((dir_entries[temp_dir_content[j]].type == TYPE_DIR && counter_stop - counter == 1 ) && from_cd == 1)
+        // {
+        //   cout << "Last item in path is folder. "  << endl;
+        //   return dir_path_temp;
+        // }
+        int dir_to_append = 0;
+
+        cout << "8\n";
+        dir_to_append = temp_dir_content[j];
+        cout << dir_to_append << "\n";
+        dir_path_temp.push_back(dir_to_append);
+        disk.read(dir_entries[dir_to_append].first_blk, (uint8_t*)temp_dir_content);
+
+        for (int i = 0; i < dir_path_temp.size(); i++)
+        {
+          cout << "dir_path_temp[i]: " << dir_path_temp[i] << "\n";
+        }
+        cout << "9\n";
+        counter++;
+        break;
+      }
+    }
+  }
+
+  if (from_rm == 1)
+  {
+    int dir_to_append = 0;
+    for (int j = 0; j < ROOT_SIZE; j++)
+    {
+      if (dir_entries[temp_dir_content[j]].file_name == dir_to_find && dir_entries[temp_dir_content[j]].type == TYPE_FILE)
+      {
+        dir_to_append = temp_dir_content[j];
+        dir_path_temp.push_back(dir_to_append);
+        break;
+      }
+    }
+    dir_path_temp.push_back(dir_to_append);
+  }
+  for(int i = 0; i < dir_path_temp.size(); i++)
+  {
+    cout << dir_path_temp[i] << endl;
+  }
+  cout << "exiting\n";
+  return dir_path_temp;
+}
+
+int FS::accessrights_check(int dir_entry_index, int accessrights)
+{
+
+  int dest_file_accessrights = dir_entries[dir_entry_index].access_rights;
+
+  //READ check
+  if (accessrights == READ)
+  {
+    if (dest_file_accessrights == READ || dest_file_accessrights == READ + WRITE || dest_file_accessrights == READ + WRITE + EXECUTE || dest_file_accessrights == READ + EXECUTE)
+    {
+      return 0;
+    }
+    return -1;
+  }
+  //WRITE check
+  if (accessrights == WRITE)
+  {
+    if (dest_file_accessrights == WRITE || dest_file_accessrights == READ + WRITE || dest_file_accessrights == READ + WRITE + EXECUTE || dest_file_accessrights == WRITE + EXECUTE)
+    {
+      return 0;
+    }
+    return -1;
+  }
+}
+
+int FS::file_fit_check(int num_blocks) //KLAAAAAAAAAAAAAAAAAAAAAAR
 {
   int found_blocks = 0;
   for (int i = 0; i < 64; i++)
@@ -28,247 +203,89 @@ int FS::file_fit_check(int num_blocks)
   return 0;
 }
 
-int FS::get_parent_index(std::vector<string> path)
+std::vector<int> FS::init_dir_content(std::vector<int> path) // "KLAAAAAAAAAAAAAAAAAAAAAAR"
 {
-  cout << "Entering get parent" << endl;
-  // set path to parent path
-  vector<string> temp_path = path;
-  string current_filename = temp_path[temp_path.size() - 1];
-  temp_path.resize(temp_path.size() - 1);
-  
-
-  void *ptr_mem = calloc(ROOT_SIZE, sizeof(int));
-  int* ptr = (int*)ptr_mem;
-  ptr = init_dir_content(temp_path);
-  cout << "back to get parent" << endl;
-  if(temp_path.size() == 0){
-    // Parent is root
-    cout << "Parent is Root!" << endl;
-    free(ptr_mem);
-    return -2;
-  }
-
-  for (int i = 0; i < ROOT_SIZE; i++)
-  {
-    cout << ptr[i] << endl;
-    string filename_temp = dir_entries[ptr[i]].file_name;
-    cout << current_filename << endl;
-    cout << dir_entries[ptr[i]].file_name << endl;
-    if(filename_temp == current_filename.c_str()) {
-      cout << "Parent is: " << ptr[i] << endl;
-      cout << "freeing ptr mem get parentu" << endl;
-      free(ptr_mem);
-      return ptr[i];
-    }
-  }
-
-  cout << "failed?" << endl;
-}
-
-int * FS::init_dir_content(std::vector<string> path) { // return new dir content array so it can be assigned to temp places as well as global.
-  cout << "Hey look we enterd init_dir_content! \n";
    // Is root folder
-  if(path.size() == 1){
-
-    /*
-    Step 1: Find all folders in dir_entries
-    Step 2: All items that are not part of another folders content must be in root director
-    Step 3: Set orphan entries to current folder
-    */
-  // Get all the folders
-   int folder_indexes[ROOT_SIZE];
-   int dir_not_in_root[ROOT_SIZE];
-   int dir_in_root[ROOT_SIZE];
-
-   for (int i = 0; i < ROOT_SIZE; i++)
-   {
-     folder_indexes[i] = -1;
-     dir_in_root[i] = -1;
-     dir_not_in_root[i] = -1;
-   }
-   int folder_index_counter = 0;
-   for(int i = 0; i < ROOT_SIZE; i++)
-   {
-      if(dir_entries[i].type == TYPE_DIR)
-      {
-        folder_indexes[folder_index_counter] = i;
-        folder_index_counter++;
-      }
-   }
-  //  cout << "folder_index_counter: " << folder_index_counter << "\n";
-
-
-  //  //Nytt
-  int dir_not_in_root_counter = 0;
-
-  for (int i = 0; i < folder_index_counter; i++)
-   {
-    //  cout << folder_indexes[i] << "\n";
-    void *dir_content_mem = calloc(BLOCK_SIZE, sizeof(char));
-    int* dir_content = (int*)dir_content_mem;//(int*)calloc(ROOT_SIZE, sizeof(int)); 
-
-     disk.read(dir_entries[folder_indexes[i]].first_blk, (uint8_t*)dir_content);
-    //  if (dir_content[0] == -2)
-    //  {
-     //
-    //  }
-
-     for (int j = 1; j < ROOT_SIZE; j++)
-     {
-       if (dir_content[j] != -1)
-       {
-        //  cout << "dir_content: " << dir_content[j] << "\n";
-         dir_not_in_root[dir_not_in_root_counter] = dir_content[j];
-        //  cout << "dir_content: " << dir_content[j] << "\n";
-         dir_not_in_root_counter++;
-       }
-     }
-     cout << "free dir_content in function " << endl;
-     free(dir_content_mem);
-   }
-   int dir_in_root_counter = 0;
-
-   for (int i = 0; i < ROOT_SIZE; i++)
-   {
-    //  cout << "current i: " << i << "\n";
-
-     if (dir_entries[i].first_blk == 0)
-     {
-       continue;
-     }
-
-     int i_found = 0;
-     for (int j = 0; j < ROOT_SIZE; j++)
-     {
-      //  cout << "dir_not_in_root: " << dir_not_in_root[j] << "\n";
-       if (i == dir_not_in_root[j])
-       {
-         i_found = 1;
-         break;
-       }
-     }
-
-     if (i_found == 0)
-     {
-      //  cout << "i not found: " << i << "\n";
-       dir_in_root[dir_in_root_counter] = i;
-       dir_in_root_counter ++;
-     }
-   }
-
-   static int return_value[ROOT_SIZE];
-   // Save to memory
-   for(int i = 0; i < ROOT_SIZE; i++)
-   {
-     return_value[i] = dir_in_root[i];
-   }
-  cout << "init_dir_content retrun." << endl;
-   for(int i = 0; i < ROOT_SIZE/8; i++)
-   {
-      cout << return_value[i] << endl;
-   }
-
-   return return_value;
-
-}
-   else
-   {
-    /* if not root folder
-    Step 1: Navigate to root folder
-    Step 2: Naviagte accord to path vector
-    Step 3 Load content from folder block
-    */
-    std::vector<std::string> navigated_path{""};
-    int* navigation_dir;
-    int cantFindFolder = 0;
-    // cout << "Navigated to root " << endl;
-    cout << "gonna calloc like cool kid B)" << endl;
-    cout << dir_path.size() << endl;
-    void *ptr_mem = calloc(ROOT_SIZE, sizeof(int));
-    int* ptr = (int*)ptr_mem;
-    ptr = (init_dir_content(navigated_path));
-    cout << "heres root " << endl;
-    for(int i = 0; i < ROOT_SIZE; i++) {
-      cout << ptr[i] << endl;
-    }
-    // cout << "path size: " << path.size() << endl;
-    // For each dir in path
-    for (int i = 1; i < path.size(); i++) { // starting at 1 since we dont want to look at root again.
-      // cout << "navigated_path size: " << navigated_path.size() << endl;
-      // find next directory in current dirs content
-      for(int j = 0; j < ROOT_SIZE; j++) {
-        //cout << "j = " << j << endl;
-        if( dir_entries[ptr[j]].file_name == path[i]) {
-          void *nav_dir_mem = calloc(BLOCK_SIZE, sizeof(char));
-
-          navigation_dir = (int*)nav_dir_mem;
-          disk.read(dir_entries[ptr[j]].first_blk, (uint8_t*)navigation_dir);
-          // cout << "printing navigation dir" << endl;
-          for (int k = 0; k < ROOT_SIZE; k++){
-            ptr[k] = navigation_dir[k];
-          }
-          navigated_path.push_back(dir_entries[ptr[j]].file_name);
-          free(nav_dir_mem);
-          break;
-        }
-
-
-        if (j == ROOT_SIZE - 1) {
-          cout <<"Can't find a directory the path is pointing to" << endl;
-          int* fail;
-          fail[0] = -1337;
-          //cout << "freeing ptr_mem in case of init dir content fail" << endl;
-          free(ptr_mem);
-          return fail;
-        }
-
-      }
-    }
-    cout << "freeing ptr_mem in path > 1" << endl;
-    free(ptr_mem);
-    cout << "The ptr we return here has these values: " << endl;
-    for (int i = 0; i < ROOT_SIZE; i++) {
-      cout << "ptr[i] = " << ptr[i] << endl;
-    }
-    return ptr;
-
-   }
-
- }
-
-void FS::save_curr_dir()
-{
-  // FIRST save current directory
-  int parent_id = curr_dir_content[0];
-  // int parent_dir_content[ROOT_SIZE];
-  int curr_dir_id;
-
-  //debugging
-  // for (int i = 0; i < ROOT_SIZE; i++)
+  // if(path.size() == 0)
   // {
-  //   cout << "cirr_dircontent " << curr_dir_content[i] << "\n";
-  // }
+      /*
+      Step 1: Find all folders in dir_entries
+      Step 2: All items that are not part of another folders content must be in root director
+      Step 3: Set orphan entries to current folder
+      */
 
-  if (parent_id == -2)
-  {
-    parent_id = get_parent_index(dir_path);
-  }
+    // Get all the folders
+     int folder_indexes[ROOT_SIZE];
+     int dir_not_in_root[ROOT_SIZE];
+     int dir_in_root[ROOT_SIZE];
 
-  // cout <<  "dir_block: " << dir_entries[parent_id].first_blk << "\n";
-  int* parent_dir_content = (int*)calloc(ROOT_SIZE, sizeof(int));
-  disk.read(dir_entries[parent_id].first_blk, (uint8_t*)parent_dir_content);
-  // cout << "shit i gotz here ";
-  for(int i = 0; i < ROOT_SIZE; i++){
+     for (int i = 0; i < ROOT_SIZE; i++)
+     {
+       folder_indexes[i] = -1;
+       dir_in_root[i] = -1;
+       dir_not_in_root[i] = -1;
+     }
 
-    if(dir_entries[parent_dir_content[i]].file_name == dir_path.back())
-    {
-      // cout << "i gotz here \n";
-       curr_dir_id = parent_dir_content[i];
-    }
-  }
-  // cout <<  "dir_block: " << dir_entries[curr_dir_id].first_blk << "\n";
-  disk.write(dir_entries[curr_dir_id].first_blk, (uint8_t*)curr_dir_content);
-  return;
+     int folder_index_counter = 0;
+     for(int i = 0; i < ROOT_SIZE; i++)
+     {
+        if(dir_entries[i].type == TYPE_DIR)
+        {
+          folder_indexes[folder_index_counter] = i;
+          folder_index_counter++;
+        }
+     }
+
+    //  //Nytt
+    int dir_not_in_root_counter = 0;
+    for (int i = 0; i < folder_index_counter; i++)
+     {
+       int* dir_content = (int*)calloc(BLOCK_SIZE, sizeof(char));
+       disk.read(dir_entries[folder_indexes[i]].first_blk, (uint8_t*)dir_content);
+
+       for (int j = 0; j < ROOT_SIZE; j++)
+       {
+         if (dir_content[j] != -1)
+         {
+           dir_not_in_root[dir_not_in_root_counter] = dir_content[j];
+           dir_not_in_root_counter++;
+         }
+       }
+     }
+     int dir_in_root_counter = 0;
+
+     for (int i = 0; i < ROOT_SIZE; i++)
+     {
+       if (dir_entries[i].first_blk == 0)
+       {
+         continue;
+       }
+
+       int i_found = 0;
+       for (int j = 0; j < ROOT_SIZE; j++)
+       {
+         if (i == dir_not_in_root[j])
+         {
+           i_found = 1;
+           break;
+         }
+       }
+
+       if (i_found == 0)
+       {
+         dir_in_root[dir_in_root_counter] = i;
+         dir_in_root_counter ++;
+       }
+     }
+
+     std::vector<int> return_value;
+     // Save to memory
+     for(int i = 0; i < ROOT_SIZE; i++)
+     {
+       return_value.push_back(dir_in_root[i]);
+     }
+     return return_value;
+ // }
 }
 
 FS::FS()
@@ -282,26 +299,17 @@ FS::FS()
 
     // Confirm that read properly reads the FAT block
     int checkIfDataSaved = fat[ROOT_BLOCK];
+
     cout << "-- Finished booting -- \n";
 
-    curr_dir_content[0] = -2;
+    std::vector<int> root_dir_content;
 
-    // Init root dir content
-    for(int i = 1; i < ROOT_SIZE; i++) {
-      curr_dir_content[i] = -1;
+    root_dir_content = init_dir_content(dir_path);
+
+    for(int i = 0; i < ROOT_SIZE; i++)
+    {
+       curr_dir_content[i] = root_dir_content[i];
     }
-
-        // Set the root folder
-    void *ptr_mem = calloc(ROOT_SIZE, sizeof(int));
-    int* ptr = (int*)ptr_mem;
-    ptr = (init_dir_content(dir_path));
-
-    for(int i = 0; i < ROOT_SIZE; i++) {
-       curr_dir_content[i] = ptr[i];
-    }
-    cout << "freeing fs ptrmem\n";
-    free(ptr_mem);
-
 }
 
 FS::~FS()
@@ -311,12 +319,11 @@ FS::~FS()
 
 // formats the disk, i.e., creates an empty file system
 int
-FS::format()
+FS::format() //KLAAAAR
 {
-    //"*"*"*"*"*"*"*"*"*"*"*"FIXA PATHEN VID FORMAT*"*"*"*"*"*"*"""""""*"""*
     string empty_str = "";
 
-    for (int i = 0; dir_path.size() != 1; i++)
+    for (int i = 0; dir_path.size() != 0; i++)
     {
       dir_path.resize(dir_path.size() - 1);
     }
@@ -357,23 +364,100 @@ FS::format()
 // create <filepath> creates a new file on the disk, the data content is
 // written on the following rows (ended with an empty row)
 int
-FS::create(std::string filepath)
+FS::create(std::string filepath) //KLAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAR
 {
     //get file size
     int size_of_file;
     string string_to_eval;
     string string_to_eval_temp;
     int start_block;
+    cout << "1\n";
+    std::vector<int> dir_path_temp = string_to_vector_converter(filepath);
+    if (dir_path_temp.size() >= 1)
+    {
+      if(dir_path_temp.back() == -1)
+      {
+        cout << "error cant go above root" << endl;
+        return -1;
+      }
+    }
+    std::vector<int> dir_path_temp_temp = dir_path;
+    int temp_curr_dir_content[BLOCK_SIZE];
 
+    for(int r = 0; r < ROOT_SIZE; r++)
+    {
+      temp_curr_dir_content[r] = curr_dir_content[r];
+    }
+    cout << "2\n";
+    if (dir_path_temp.size() != dir_path.size() || dir_path_temp != dir_path)
+    {
+      cout << "2.2\n";
+      dir_path_temp_temp = dir_path_temp;
+      cout << dir_path_temp_temp.back() << "\n";
+
+      if (dir_path_temp.size() != 0)
+      {
+      disk.read(dir_entries[dir_path_temp_temp.back()].first_blk, (uint8_t*)temp_curr_dir_content);
+      }
+
+      if (dir_path_temp.size() == 0)
+      {
+        std::vector<int> root_content;
+        root_content = init_dir_content(root_content);
+        int dir_content[ROOT_SIZE];
+
+        for (int l = 0; l < ROOT_SIZE; l++)
+        {
+          temp_curr_dir_content[l] = 0;
+        }
+
+        for (int p = 0; p < root_content.size(); p++)
+        {
+          temp_curr_dir_content[p] = root_content[p];
+        }
+      }
+
+      //Ful lösning för att hitta namnet
+      std::vector<int> dir_path_name_find = dir_path;
+      std::vector<int> path;
+      std::vector<string> path_str;
+      string dir;
+      char delimiter = '/';
+      int temp_dir_content[BLOCK_SIZE];
+      int filepath_size = filepath.length();
+      char filepath_char[filepath_size];
+      strcpy(filepath_char, filepath.c_str());
+
+      membuf sbuf(filepath_char, filepath_char + sizeof(filepath_char));
+      istream in(&sbuf);
+
+      while (getline(in, dir, delimiter))
+      {
+        path_str.push_back(dir);
+      }
+      filepath = path_str.back();
+    }
+    cout << "3\n";
     for(int i = 0; i < ROOT_SIZE; i++)
     {
-      if (dir_entries[curr_dir_content[i]].file_name == filepath)
+      cout << "temp_curr_dir_content[i]: " << temp_curr_dir_content[i] << "\n";
+      cout << "dir_entries[temp_curr_dir_content[i]].file_name: " << dir_entries[temp_curr_dir_content[i]].file_name << "\n";
+      if (dir_entries[temp_curr_dir_content[i]].file_name == filepath)
       {
         cout << "A file with that name already exists in this directory, try again\n";
         return 0;
       }
     }
-
+    cout << "4\n";
+    if (dir_path_temp_temp.size() != 0)
+    {
+      if (accessrights_check(dir_path_temp_temp.back(), WRITE) == -1)
+      {
+        cout << "You do not have the rights to create files in this directory! \n";
+        return 0;
+      }
+    }
+    cout << "5\n";
     cout << "Enter the information: ";
 
     while (getline(cin, string_to_eval_temp) && string_to_eval_temp.length() != 0)
@@ -385,10 +469,6 @@ FS::create(std::string filepath)
 
     size_of_file = string_to_eval.length();
     int size_of_file_temp = size_of_file;
-
-    cout << "size of file: " << size_of_file << "\n";
-
-    //insert data into directory entry
 
     // check amount of block
     int num_blocks = size_of_file / BLOCK_SIZE + 1;
@@ -471,25 +551,15 @@ FS::create(std::string filepath)
         break;
       }
     }
-
     struct dir_entry temp_entry;
 
-    // int* ptr = (int*)calloc(ROOT_SIZE, sizeof(int));
-    // ptr = init_dir_content(dir_path);
-
-    // for(int i = 0; i < ROOT_SIZE; i++)
-    // {
-    //   curr_dir_content[i] = ptr[i];
-    // }
-
-    // cout << "1\n";
+    //insert data into directory entry
     strcpy(temp_entry.file_name, filepath.c_str());
 
     temp_entry.size = size_of_file;
-    cout << "dir_entry_size: " << temp_entry.size << " == func_size: " << size_of_file << "\n";
     temp_entry.first_blk = start_block;
     temp_entry.type = TYPE_FILE;
-    temp_entry.access_rights = READ;
+    temp_entry.access_rights = READ + WRITE;
 
     // dir_entry to root
     int dir_entry_index;
@@ -502,47 +572,24 @@ FS::create(std::string filepath)
         break;
       }
     }
-    // cout << "2\n";
-    int i;
 
-    if (dir_path.size() == 1)
+    for( int i = 0; i < ROOT_SIZE; i++)
     {
-      i = 0;
-    }
-
-    else
-    {
-      i = 1;
-    }
-
-    for(i; i < ROOT_SIZE; i++)
-    {
-      if (curr_dir_content[i] == -1)
+      cout << "temp_curr_dir_content[i]: " << temp_curr_dir_content[i] << "\n";
+      if (temp_curr_dir_content[i] == -1)
       {
-        // cout << "curr_dir_content[i]: " << curr_dir_content[i] << "\n";
-        // cout << "dir_entry_index " << dir_entry_index << "\n";
-
-        curr_dir_content[i] = dir_entry_index;
+        temp_curr_dir_content[i] = dir_entry_index;
+        if(dir_path_temp.size() == dir_path.size() || dir_path_temp == dir_path)
+        {
+          curr_dir_content[i] = dir_entry_index;
+        }
         break;
       }
     }
-    // cout << "3\n";
-    //debugging
-    // for (int i = 0; i < ROOT_SIZE; i++)
-    // {
-    //   cout << "curr_durcontent " << curr_dir_content[i] << "\n";
-    // }
+
     disk.write(ROOT_BLOCK, (uint8_t*)dir_entries);
 
-    int parent_id = curr_dir_content[0];
-
-    if (parent_id == -2)
-    {
-      parent_id = get_parent_index(dir_path);
-      cout << "got parent_id " << parent_id << "\n";
-    }
-
-    if(dir_path.size() == 1)
+    if(dir_path_temp_temp.size() == 0)
     {
       return 0;
     }
@@ -551,26 +598,10 @@ FS::create(std::string filepath)
     /**DONT TOUCH**/ cout << endl; //DONT TOUCH
     //REMOVING THIS PRINT CAUSES THE CODE TO SEGFAULT
 
-    if (dir_path.size() != 1)
+    if (dir_path_temp_temp.size() != 0)
     {
-      int curr_dir_id;
-      int* parent_dir_content = (int*)calloc(ROOT_SIZE, sizeof(int));
-      cout << "gonna reeead" << endl;
-      disk.read(dir_entries[parent_id].first_blk, (uint8_t*)parent_dir_content);
-      cout << "reeead" << endl;
-
-      // cout << "shit i gotz here ";
-      for(int i = 0; i < ROOT_SIZE; i++){
-
-        if(dir_entries[parent_dir_content[i]].file_name == dir_path.back())
-        {
-          // cout << "i gotz here \n";
-          curr_dir_id = parent_dir_content[i];
-          break;
-        }
-      }
-      cout <<  "dir_block: " << dir_entries[curr_dir_id].first_blk << "\n";
-      disk.write(dir_entries[curr_dir_id].first_blk, (uint8_t*)curr_dir_content);
+      int block_to_write = dir_entries[dir_path_temp_temp.back()].first_blk;
+      disk.write(block_to_write, (uint8_t*)temp_curr_dir_content);
     }
 
     // save_curr_dir();
@@ -581,41 +612,111 @@ FS::create(std::string filepath)
 
 // cat <filepath> reads the content of a file and prints it on the screen
 int
-FS::cat(std::string filepath)
+FS::cat(std::string filepath) //KLAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAR
 {
     std::cout << "FS::cat(" << filepath << ")\n";
     int blocks_to_read;
     int entry_index;
     int file_found = 0;
 
-    // Find file
-    for(int i = 0; i < ROOT_SIZE; i++){
+    std::vector<int> dir_path_temp = string_to_vector_converter(filepath);
+    if (dir_path_temp.size() >= 1)
+    {
+      if(dir_path_temp.back() == -1)
+      {
+        cout << "error cant go above root" << endl;
+        return -1;
+      }
+    }
+    std::vector<int> dir_path_temp_temp = dir_path;
+    int temp_curr_dir_content[BLOCK_SIZE];
 
-      if(dir_entries[i].file_name == filepath)
+    for(int r = 0; r < ROOT_SIZE; r++)
+    {
+      temp_curr_dir_content[r] = curr_dir_content[r];
+    }
+    if (dir_path_temp.size() != dir_path.size() || dir_path_temp != dir_path)
+    {
+      dir_path_temp_temp = dir_path_temp;
+      disk.read(dir_entries[dir_path_temp_temp.back()].first_blk, (uint8_t*)temp_curr_dir_content);
+
+      //Ful lösning för att hitta namnet
+      std::vector<int> dir_path_name_find = dir_path;
+      std::vector<int> path;
+      std::vector<string> path_str;
+      string dir;
+      char delimiter = '/';
+      int temp_dir_content[BLOCK_SIZE];
+      int filepath_size = filepath.length();
+      char filepath_char[filepath_size];
+      strcpy(filepath_char, filepath.c_str());
+
+      membuf sbuf(filepath_char, filepath_char + sizeof(filepath_char));
+      istream in(&sbuf);
+
+      while (getline(in, dir, delimiter))
+      {
+        path_str.push_back(dir);
+      }
+      filepath = path_str.back();
+
+      if (dir_path_temp_temp.size() == 0)
+      {
+        std::vector<int> root_dir_content;
+        root_dir_content = init_dir_content(dir_path_temp_temp);
+        for(int i = 0; i < ROOT_SIZE; i++)
+        {
+           temp_curr_dir_content[i] = root_dir_content[i];
+           if(dir_path_temp.size() == dir_path.size())
+           {
+             curr_dir_content[i] = root_dir_content[i];
+           }
+        }
+      }
+    }
+
+    // Find file
+    for(int i = 0; i < ROOT_SIZE; i++)
+    {
+      if(dir_entries[temp_curr_dir_content[i]].file_name == filepath)
       {
         file_found = 1;
-        entry_index = i;
-        blocks_to_read = dir_entries[i].size/BLOCK_SIZE;
+        entry_index = temp_curr_dir_content[i];
+        blocks_to_read = dir_entries[temp_curr_dir_content[i]].size/BLOCK_SIZE;
         // Add rest block if exists
-        if(dir_entries[i].size%BLOCK_SIZE > 0)
+        if(dir_entries[temp_curr_dir_content[i]].size%BLOCK_SIZE > 0)
         {
           blocks_to_read++;
         }
         break;
       }
     }
-    // if type = file
-    if(dir_entries[entry_index].type == TYPE_FILE){
-      if (file_found == 0)
-      {
-        cout << "No file with that name found, try again\n";
-        return 0;
-      }
 
-      if(blocks_to_read == 0){
+    if (file_found == 0)
+    {
+      cout << "No file with that name found, try again\n";
+      return 0;
+    }
+
+    if (dir_entries[entry_index].type == TYPE_DIR)
+    {
+      cout << "Cannot read a directory! \n";
+      return 0;
+    }
+
+    if (accessrights_check(entry_index, READ) == -1)
+    {
+      cout << "You do not have the rights to read this file! \n";
+      return 0;
+    }
+    // if type = file
+    if(dir_entries[entry_index].type == TYPE_FILE)
+    {
+
+      if(blocks_to_read == 0)
+      {
         return -1;
       }
-
       // read from disk
       char* block_content;
       block_content = (char*)calloc(BLOCK_SIZE, sizeof(char));
@@ -631,54 +732,77 @@ FS::cat(std::string filepath)
           next_block = fat[next_block];
         }
       }
-
       //Present content
       cout << read_data << endl;
       free(block_content);
       free(read_data);
       return 0;
-    } else {
-      int temp_dir_content[64];
-      disk.read(dir_entries[entry_index].first_blk, (uint8_t*)temp_dir_content);
-      for(int i = 0; i < ROOT_SIZE; i++){
-        cout << temp_dir_content[i] << endl;
-      }
-      return 0;
     }
-
-
+    return 0;
 }
 
 // ls lists the content in the currect directory (files and sub-directories)
 int
-FS::ls()
+FS::ls() ////KLAR
 {
-  // int dir_size = 0;
-  // for (int i = 0; i < 64; i++)
-  // {
-  //     if (curr_dir_content[i] != -1)
-  //     {
-  //       dir_size++;
-  //       cout << "dir size: " << dir_size << "\n";
-  //     }
-  // }
-  // dir_size++;
-  int i;
-  if (dir_path.size() == 1)
-  {
-      i = 0;
-  }
-
-  else
-  {
-      i = 1;
-  }
-
-  for (i; i < sizeof(curr_dir_content)/sizeof(curr_dir_content[0]); i++)
+  cout << "name" << setw(15) << "type" << setw(15) << "accessrights" << setw(15) << "size" << "\n";
+  for (int i = 0; i < sizeof(curr_dir_content)/sizeof(curr_dir_content[0]); i++)
       {
         if (curr_dir_content[i] != -1)
         {
-          cout << dir_entries[curr_dir_content[i]].file_name << "                     " << dir_entries[curr_dir_content[i]].size << "\n";
+          string type;
+          if (dir_entries[curr_dir_content[i]].type == TYPE_DIR)
+          {
+            type = "dir";
+          }
+          else
+          {
+            type = "file";
+          }
+
+          string accessrights_str;
+          int accessrights = dir_entries[curr_dir_content[i]].access_rights;
+
+          if (accessrights == 0)
+          {
+            accessrights_str = "---";
+          }
+
+          else if (accessrights == READ)
+          {
+            accessrights_str = "r--";
+          }
+
+          else if (accessrights == READ + WRITE)
+          {
+            accessrights_str = "rw-";
+          }
+
+          else if (accessrights == READ + WRITE + EXECUTE)
+          {
+            accessrights_str = "rwx";
+          }
+
+          else if (accessrights == READ + EXECUTE)
+          {
+            accessrights_str = "r-x";
+          }
+
+          else if (accessrights == WRITE)
+          {
+            accessrights_str = "-w-";
+          }
+
+          else if (accessrights == WRITE + EXECUTE)
+          {
+            accessrights_str = "-wx";
+          }
+
+          else if (accessrights == EXECUTE)
+          {
+            accessrights_str = "--x";
+          }
+          cout << dir_entries[curr_dir_content[i]].file_name << setw(15) << type << setw(15) << accessrights_str << setw(15) << dir_entries[curr_dir_content[i]].size << "\n";
         }
       }
 
@@ -688,11 +812,139 @@ FS::ls()
 // cp <sourcepath> <destpath> makes an exact copy of the file
 // <sourcepath> to a new file <destpath>
 int
-FS::cp(std::string sourcepath, std::string destpath)
+FS::cp(std::string sourcepath, std::string destpath) //KLAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAR
 {
     std::cout << "FS::cp(" << sourcepath << "," << destpath << ")\n";
     int dir_entry_index = -1;
     char name_array[56];
+
+    //SOURCE
+    std::vector<int> dir_path_temp_source = string_to_vector_converter(sourcepath);
+
+    if (dir_path_temp_source.size() >= 1)
+    {
+      if(dir_path_temp_source.back() == -1)
+      {
+        cout << "error cant go above root" << endl;
+        return -1;
+      }
+    }
+
+    std::vector<int> dir_path_temp_temp_source = dir_path;
+    int temp_curr_dir_content_source[BLOCK_SIZE];
+
+    for(int r = 0; r < ROOT_SIZE; r++)
+    {
+      temp_curr_dir_content_source[r] = curr_dir_content[r];
+    }
+
+    if (dir_path_temp_source.size() != dir_path.size() || dir_path_temp_source != dir_path)
+    {
+      dir_path_temp_temp_source = dir_path_temp_source;
+      if (dir_path_temp_source.size() != 0)
+      {
+        disk.read(dir_entries[dir_path_temp_temp_source.back()].first_blk, (uint8_t*)temp_curr_dir_content_source);
+      }
+
+      if (dir_path_temp_source.size() == 0)
+      {
+        std::vector<int> root_content;
+        root_content = init_dir_content(root_content);
+        int dir_content[ROOT_SIZE];
+
+        for (int l = 0; l < ROOT_SIZE; l++)
+        {
+          temp_curr_dir_content_source[l] = 0;
+        }
+
+        for (int p = 0; p < root_content.size(); p++)
+        {
+          temp_curr_dir_content_source[p] = root_content[p];
+        }
+      }
+      //Ful lösning för att hitta namnet
+      std::vector<int> dir_path_name_find = dir_path;
+      std::vector<int> path;
+      std::vector<string> path_str;
+      string dir;
+      char delimiter = '/';
+      int temp_dir_content[BLOCK_SIZE];
+      int sourcepath_size = sourcepath.length();
+      char sourcepath_char[sourcepath_size];
+      strcpy(sourcepath_char, sourcepath.c_str());
+
+      membuf sbuf(sourcepath_char, sourcepath_char + sizeof(sourcepath_char));
+      istream in(&sbuf);
+
+      while (getline(in, dir, delimiter))
+      {
+        path_str.push_back(dir);
+      }
+      sourcepath = path_str.back();
+    }
+
+    //DEST
+    std::vector<int> dir_path_temp = string_to_vector_converter(destpath);
+    if (dir_path_temp.size() >= 1)
+    {
+      if(dir_path_temp.back() == -1)
+      {
+        cout << "error cant go above root" << endl;
+        return -1;
+      }
+    }
+    std::vector<int> dir_path_temp_temp = dir_path;
+    int temp_curr_dir_content[BLOCK_SIZE];
+
+    for(int r = 0; r < ROOT_SIZE; r++)
+    {
+      temp_curr_dir_content[r] = curr_dir_content[r];
+    }
+
+    if (dir_path_temp.size() != dir_path.size() || dir_path_temp != dir_path)
+    {
+      dir_path_temp_temp = dir_path_temp;
+      if (dir_path_temp.size() != 0)
+      {
+        disk.read(dir_entries[dir_path_temp_temp.back()].first_blk, (uint8_t*)temp_curr_dir_content);
+      }
+
+      if (dir_path_temp.size() == 0)
+      {
+        std::vector<int> root_content;
+        root_content = init_dir_content(root_content);
+        int dir_content[ROOT_SIZE];
+
+        for (int l = 0; l < ROOT_SIZE; l++)
+        {
+          temp_curr_dir_content[l] = 0;
+        }
+
+        for (int p = 0; p < root_content.size(); p++)
+        {
+          temp_curr_dir_content[p] = root_content[p];
+        }
+      }
+      //Ful lösning för att hitta namnet
+      std::vector<int> dir_path_name_find = dir_path;
+      std::vector<int> path;
+      std::vector<string> path_str;
+      string dir;
+      char delimiter = '/';
+      int temp_dir_content[BLOCK_SIZE];
+      int filepath_size = destpath.length();
+      char filepath_char[filepath_size];
+      strcpy(filepath_char, destpath.c_str());
+
+      membuf sbuf(filepath_char, filepath_char + sizeof(filepath_char));
+      istream in(&sbuf);
+
+      while (getline(in, dir, delimiter))
+      {
+        path_str.push_back(dir);
+      }
+      destpath = path_str.back();
+    }
 
     for (int i = 0; i < ROOT_SIZE; i++)
     {
@@ -708,9 +960,31 @@ FS::cp(std::string sourcepath, std::string destpath)
       }
     }
 
+      // check if source is directory
+      if(dir_entries[dir_entry_index].type == TYPE_DIR)
+      {
+        cout << "Cannot copy a directory." << endl;
+        return -1;
+      }
+
+    if (accessrights_check(dir_entry_index, READ) == -1)
+    {
+      cout << "You do not have the rights to read this file! \n";
+      return 0;
+    }
+
+    if (dir_path_temp_temp.size() != 0)
+    {
+      if (accessrights_check(dir_path_temp_temp.back(), WRITE) == -1)
+      {
+        cout << "You do not have the rights to write to this directory \n";
+        return 0;
+      }
+    }
+
     for(int i = 0; i < ROOT_SIZE; i++)
     {
-      if (dir_entries[i].file_name == destpath)
+      if (dir_entries[temp_curr_dir_content[i]].file_name == destpath)
       {
         cout << "A file with that name already exists in this directory, try again\n";
         return 0;
@@ -740,16 +1014,12 @@ FS::cp(std::string sourcepath, std::string destpath)
     }
 
     //GET FILE information
-
     uint32_t size_of_file = dir_entries[dir_entry_index].size;
     uint16_t first_block = dir_entries[dir_entry_index].first_blk;
     uint8_t type = dir_entries[dir_entry_index].type;
     uint8_t access_rights = dir_entries[dir_entry_index].access_rights;
 
-    // cout << "1 \n";
-
     //Get data from file
-    //FEEEEEEEEEL start här
     char* block_content;
     block_content = (char*)calloc(BLOCK_SIZE, sizeof(char));
     char* read_data;
@@ -765,25 +1035,18 @@ FS::cp(std::string sourcepath, std::string destpath)
         next_block = fat[next_block];
       }
     }
-    // cout << "2 \n";
     //**''*''*'''*''*''**CREATE FILE copied from CREATE function**''*''*''*
 
     //get file size
     int start_block;
     string string_to_eval = read_data;
-    // free(read_data);
-    // convert string_to_eval to uint8_t*
+
     uint8_t* block = (uint8_t*)string_to_eval.c_str();
 
     size_of_file = string_to_eval.length();
     int size_of_file_temp = size_of_file;
 
-    //FEEEEEEEEEL end här
-
-    //insert data into directory entry
-    cout << "3 \n";
     // check amount of block
-
         int free_spaces[blocks_to_read];
         int free_space_counter = 0;
         for (int i = 0; i < BLOCK_SIZE/2; i++)
@@ -845,18 +1108,12 @@ FS::cp(std::string sourcepath, std::string destpath)
       }
     }
     struct dir_entry temp_entry;
-    cout << "4 \n";
     strcpy(temp_entry.file_name, destpath.c_str());
 
     temp_entry.size = size_of_file;
     temp_entry.first_blk = start_block;
     temp_entry.type = type;
     temp_entry.access_rights = access_rights;
-
-    // vector<string> path = dir_path;
-    // path.push_back(temp_entry.file_name);
-    //
-    // init_dir_content(path);
 
     // entry to root
     for(int i = 0; i < ROOT_SIZE; i++)
@@ -869,97 +1126,70 @@ FS::cp(std::string sourcepath, std::string destpath)
       }
     }
 
-    int i;
-
-    if (dir_path.size() == 1)
+    for(int i = 0; i < ROOT_SIZE; i++)
     {
-      i = 0;
-    }
-
-    else
-    {
-      i = 1;
-    }
-
-    for(i; i < ROOT_SIZE; i++)
-    {
-      if (curr_dir_content[i] == -1)
+      if (temp_curr_dir_content[i] == -1)
       {
-        // cout << "curr_dir_content[i]: " << curr_dir_content[i] << "\n";
-        // cout << "dir_entry_index " << dir_entry_index << "\n";
-        // cout << "current i:  " << dir_entry_index << "\n";
-
-        curr_dir_content[i] = dir_entry_index;
+        temp_curr_dir_content[i] = dir_entry_index;
+        if(dir_path_temp == dir_path)
+        {
+          curr_dir_content[i] = dir_entry_index;
+        }
         break;
       }
     }
-    cout << "5 \n";
+
+    for(int i = 0; i < ROOT_SIZE; i++)
+    {
+      if (temp_curr_dir_content_source[i] == -1)
+      {
+        temp_curr_dir_content_source[i] = dir_entry_index;
+        if(dir_path_temp_source == dir_path)
+        {
+          curr_dir_content[i] = dir_entry_index;
+        }
+        break;
+      }
+    }
+
     disk.write(ROOT_BLOCK, (uint8_t*)dir_entries); // dir_entries in the file
 
-    int parent_id = curr_dir_content[0];
-
-    if (parent_id == -2)
+    if (dir_path_temp.size() != dir_path.size() || dir_path_temp != dir_path)
     {
-      parent_id = get_parent_index(dir_path);
+      for (int i = 0; i < ROOT_SIZE; i++)
+      {
+        if (dir_entries[temp_curr_dir_content_source[i]].file_name == destpath)
+        {
+          temp_curr_dir_content_source[i] = -1;
+          if(dir_path_temp_source == dir_path)
+          {
+            curr_dir_content[i] = -1;
+          }
+          break;
+        }
+      }
     }
 
-    else
-    {
-      parent_id = curr_dir_content[0];
-    }
-
-    if(dir_path.size() == 1)
+    if(dir_path_temp_temp.size() == 0)
     {
       return 0;
     }
-
-
 
     //REMOVING THIS PRINT CAUSES THE CODE TO SEGFAULT
     /**DONT TOUCH**/ cout << endl; //DONT TOUCH
     //REMOVING THIS PRINT CAUSES THE CODE TO SEGFAULT
 
+    if (dir_path_temp_temp.size() != 0)
+    {
+      int block_to_write = dir_entries[dir_path_temp_temp.back()].first_blk;
+      disk.write(block_to_write, (uint8_t*)temp_curr_dir_content);
+    }
 
-    // 1. vill hitta curr_dir_id
-    // 2. Läs hämta parents dir_content
-    // 3.
-    cout << "pathsize: " << dir_path.size();
-
-    // if (dir_path.size() != 1)
-    // {
-    //   cout <<" i've come to die here \n";
-    //   int curr_dir_id;
-    //   int* parent_dir_content = (int*)calloc(ROOT_SIZE, sizeof(int));
-    //   disk.read(dir_entries[parent_id].first_blk, (uint8_t*)parent_dir_content);
-    //   cout << "my parent is: " << parent_id << "\n";
-    //   cout << "shit i gotz here \n";
-    //   for(int i = 0; i < ROOT_SIZE; i++)
-    //   {
-    //     cout << dir_entries[parent_dir_content[i]].file_name << " = " << dir_path.back() << "\n";
-    //     if(dir_entries[parent_dir_content[i]].file_name == dir_path.back())
-    //     {
-    //       cout << "i gotz here \n";
-    //       curr_dir_id = parent_dir_content[i];
-    //       break;
-    //     }
-    //   }
-      // cout <<  "dir_block: " << dir_entries[curr_dir_id].first_blk << "\n";
-      // int curr_dir_id;
-      //
-      // for (int i = 0; i < ROOT_SIZE; i++)
-      // {
-      //   if (curr_dir_content[i] == -1)
-      //   {
-      //     curr_dir_id = i;
-      //     break;
-      //   }
-      // }
-      disk.write(dir_entries[parent_id].first_blk, (uint8_t*)curr_dir_content);
-    // }
-    cout << "5 \n";
-
-    // free(block_content);
-    // free(read_data);
+    if (dir_path_temp_temp_source.size() != 0)
+    {
+      int block_to_write = dir_entries[dir_path_temp_temp_source.back()].first_blk;
+      disk.write(block_to_write, (uint8_t*)temp_curr_dir_content_source);
+    }
 
     return 0;
 }
@@ -967,211 +1197,764 @@ FS::cp(std::string sourcepath, std::string destpath)
 // mv <sourcepath> <destpath> renames the file <sourcepath> to the name <destpath>,
 // or moves the file <sourcepath> to the directory <destpath> (if dest is a directory)
 int
-FS::mv(std::string sourcepath, std::string destpath)
+FS::mv(std::string sourcepath, std::string destpath) //KLAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAR
 {
-    std::cout << "FS::mv(" << sourcepath << "," << destpath << ")\n";
+  std::cout << "FS::mv(" << sourcepath << "," << destpath << ")\n";
 
-
-    if (destpath == "..")
+  //SOURCEPATH
+  std::vector<int> dir_path_temp_source = string_to_vector_converter(sourcepath);
+  if (dir_path_temp_source.size() >= 1)
+  {
+    if(dir_path_temp_source.back() == -1)
     {
-      if (dir_path.size() == 1)
+      cout << "error cant go above root" << endl;
+      return -1;
+    }
+  }
+  std::vector<int> dir_path_temp_temp_source = dir_path;
+  int temp_curr_dir_content_source[BLOCK_SIZE];
+
+  cout << "dir_path_temp_size: " << dir_path_temp_source.size() << "\n";
+
+  cout << "1\n";
+  for(int r = 0; r < ROOT_SIZE; r++)
+  {
+    temp_curr_dir_content_source[r] = curr_dir_content[r];
+  }
+
+  if (dir_path_temp_source.size() != dir_path.size() || dir_path_temp_source != dir_path)
+  {
+    cout << "1.2\n";
+    dir_path_temp_temp_source = dir_path_temp_source;
+    if (dir_path_temp_source.size() != 0)
+    {
+      disk.read(dir_entries[dir_path_temp_temp_source.back()].first_blk, (uint8_t*)temp_curr_dir_content_source);
+    }
+
+    if (dir_path_temp_source.size() == 0)
+    {
+      std::vector<int> root_content;
+      root_content = init_dir_content(root_content);
+      int dir_content[ROOT_SIZE];
+
+      for (int l = 0; l < ROOT_SIZE; l++)
       {
-        cout << "Already in root!\n";
-        return 0;
+        temp_curr_dir_content_source[l] = 0;
       }
 
-      vector<string> dir_path_temp = dir_path;
-      dir_path_temp.resize(dir_path_temp.size()-1);
+      for (int p = 0; p < root_content.size(); p++)
+      {
+        temp_curr_dir_content_source[p] = root_content[p];
+      }
+    }
+    //Ful lösning för att hitta namnet
+    std::vector<int> dir_path_name_find = dir_path;
+    std::vector<int> path;
+    std::vector<string> path_str;
+    string dir;
+    char delimiter = '/';
+    int temp_dir_content[BLOCK_SIZE];
+    int sourcepath_size = sourcepath.length();
+    char sourcepath_char[sourcepath_size];
+    strcpy(sourcepath_char, sourcepath.c_str());
 
-      int parent_id = curr_dir_content[0];
+    membuf sbuf(sourcepath_char, sourcepath_char + sizeof(sourcepath_char));
+    istream in(&sbuf);
 
+    while (getline(in, dir, delimiter))
+    {
+      path_str.push_back(dir);
+    }
+    sourcepath = path_str.back();
+  }
+
+  //DESTPATH
+  std::vector<int> dir_path_temp_dest = string_to_vector_converter(destpath);
+  if (dir_path_temp_dest.size() >= 1)
+  {
+    if(dir_path_temp_dest.back() == -1)
+    {
+      cout << "error cant go above root" << endl;
+      return -1;
+    }
+  }
+  std::vector<int> dir_path_temp_temp_dest = dir_path;
+  int temp_curr_dir_content_dest[BLOCK_SIZE];
+
+  cout << "dir_path_temp_size_dest: " << dir_path_temp_dest.size() << "\n";
+
+  cout << "1\n";
+  for(int r = 0; r < ROOT_SIZE; r++)
+  {
+    temp_curr_dir_content_dest[r] = curr_dir_content[r];
+  }
+
+  if (dir_path_temp_dest.size() != dir_path.size() || dir_path_temp_dest != dir_path)
+  {
+      cout << "1.2\n";
+    dir_path_temp_temp_dest = dir_path_temp_dest;
+    disk.read(dir_entries[dir_path_temp_temp_dest.back()].first_blk, (uint8_t*)temp_curr_dir_content_dest);
+    if (dir_path_temp_dest.size() != 0)
+    {
+      disk.read(dir_entries[dir_path_temp_temp_dest.back()].first_blk, (uint8_t*)temp_curr_dir_content_dest);
+    }
+
+    if (dir_path_temp_dest.size() == 0)
+    {
+      std::vector<int> root_content;
+      root_content = init_dir_content(root_content);
+      int dir_content[ROOT_SIZE];
+
+      for (int l = 0; l < ROOT_SIZE; l++)
+      {
+        temp_curr_dir_content_dest[l] = 0;
+      }
+
+      for (int p = 0; p < root_content.size(); p++)
+      {
+        temp_curr_dir_content_dest[p] = root_content[p];
+      }
+    }
+
+    if (dir_path_temp_temp_dest.size() == 0)
+    {
+        cout << "1.3\n";
+      std::vector<int> root_dir_content;
+      root_dir_content = init_dir_content(dir_path_temp_temp_dest);
+      for(int i = 0; i < ROOT_SIZE; i++)
+      {
+         cout << "1.4\n";
+         temp_curr_dir_content_dest[i] = root_dir_content[i];
+      }
+
+      for (int i = 0; i < ROOT_SIZE; i++)
+      {
+        if (dir_entries[temp_curr_dir_content_dest[i]].file_name == sourcepath)
+        {
+          if(dir_entries[temp_curr_dir_content_dest[i]].type == TYPE_FILE)
+          {
+            cout << "A file is not a valid destination ´\n";
+            return -1;
+          }
+          break;
+        }
+      }
+      for (int i = 0; i < ROOT_SIZE; i++)
+      {
+        if (dir_entries[curr_dir_content[i]].file_name == sourcepath && dir_path.size() == dir_path_temp_temp_source.size())
+        {
+          curr_dir_content[i] = -1;
+          break;
+        }
+      }
+
+      disk.write(dir_entries[dir_path.back()].first_blk, (uint8_t*)curr_dir_content);
+      return 0;
+    }
+  }
+
+  cout << "2\n";
+
+  //check if sourcepath exists
+  int src_entry_index = -1;
+  for (int i = 0; i < ROOT_SIZE; i++)
+  {
+    cout << "dir_entries[curr_dir_content[i]].file_name: " << dir_entries[temp_curr_dir_content_source[i]].file_name << " = " << "sourcepath: " << sourcepath << "\n";
+    if (dir_entries[temp_curr_dir_content_source[i]].file_name == sourcepath)
+    {
+      src_entry_index = temp_curr_dir_content_source[i];
+      break;
+    }
+  }
+  if(src_entry_index == -1)
+  {
+    cout << "source cannot not be found\n";
+    return -1;
+  }
+
+  cout << "3\n";
+  if (destpath == "..")
+  {
+    if (dir_path_temp_temp_dest.size() == 0)
+    {
+      cout << "Already in root!\n";
       return 0;
     }
 
-    //find index of sourcefile
-    int i;
-    if (dir_path.size() == 1)
+    if(dir_path_temp_temp_dest.size() -1 == 0)
     {
-      i = 0;
+      // make to orphan
+      // find index
+      int dir_entry_index;
+      for(int i = 0; ROOT_SIZE; i++)
+      {
+        if(dir_entries[temp_curr_dir_content_dest[i]].file_name == sourcepath)
+        {
+          dir_entry_index = temp_curr_dir_content_dest[i];
+          break;
+        }
+      }
+
+      if (accessrights_check(dir_path_temp_temp_dest.back(), WRITE) == -1)
+      {
+        cout << "You do not the rights to write to this directory! \n";
+        return 0;
+      }
+
+      //check if other orphan with same name already exists
+      // get orphan lists
+      std::vector<int> root_dir_content;
+      vector<int> temp_dir_path;
+      root_dir_content = init_dir_content(temp_dir_path);
+      for (int i = 0; i < ROOT_SIZE; i++)
+      {
+        if (sourcepath == dir_entries[root_dir_content[i]].file_name)
+        {
+          cout << "Already an item with the same name in root" << endl;
+          return -1;
+        }
+      }
+      cout << "-2 \n";
+      for(int i = 0; i < ROOT_SIZE; i++ ) {
+        if(temp_curr_dir_content_dest[i] == dir_entry_index)
+        {
+          temp_curr_dir_content_dest[i] = -1;
+          cout << "in root remove! \n";
+          curr_dir_content[i] = -1;
+
+          break;
+        }
+      }
+      disk.write(dir_entries[dir_path_temp_temp_dest.back()].first_blk, (uint8_t*)temp_curr_dir_content_dest);
+      return 0;
     }
 
-    else
-    {
-      i = 1;
-    }
-
+    vector<int> dir_path_temp = dir_path_temp_temp_dest;
+    dir_path_temp.resize(dir_path_temp.size()-1);
+    // General case
     int dir_entry_index;
-    for (i; i < ROOT_SIZE; i++)
+    for(int i = 0; ROOT_SIZE; i++)
     {
-      if (dir_entries[curr_dir_content[i]].file_name == sourcepath)
+      if(dir_entries[temp_curr_dir_content_dest[i]].file_name == sourcepath)
       {
-        dir_entry_index = i;
-        cout << dir_entries[dir_entry_index].file_name << "\n";
+        dir_entry_index = temp_curr_dir_content_dest[i];
+        break;
       }
     }
 
-    // Is destpath a directory?
+    if (accessrights_check(dir_path_temp_temp_dest.back(), WRITE) == -1 || accessrights_check(dir_path_temp_dest.back(), WRITE) == -1)
+    {
+      cout << "You do not the rights to write to one or both of these directories! \n";
+      return 0;
+    }
+    // get parents dirs
+    int parent_dir_content[BLOCK_SIZE];
+    disk.read(dir_entries[dir_path_temp.back()].first_blk, (uint8_t*)parent_dir_content);
+    //check if parents kids share name
+    for (int i = 0; i < ROOT_SIZE; i++)
+    {
+      if (sourcepath == dir_entries[parent_dir_content[i]].file_name)
+      {
+        cout << "Already an item with the same name in root" << endl;
+        return -1;
+      }
+    }
+    cout << "-1 \n";
+    for(int i = 0; i < ROOT_SIZE; i++ )
+    {
+      if(temp_curr_dir_content_dest[i] == dir_entry_index)
+      {
+        temp_curr_dir_content_dest[i] = -1;
+        if(dir_path_temp_dest.size() == 0)
+        {
+          cout << "in root remove! \n";
+          curr_dir_content[i] = -1;
+        }
+        break;
+      }
+    }
+
     for(int i = 0; i < ROOT_SIZE; i++)
     {
-      cout << "cur_dir_filename: " << dir_entries[curr_dir_content[i]].file_name << " == " << destpath << " & curr_dir_type: " << dir_entries[curr_dir_content[i]].type << " == " << TYPE_DIR << "\n";
-      if(dir_entries[curr_dir_content[i]].file_name == destpath && dir_entries[curr_dir_content[i]].type == TYPE_DIR)
+      if(parent_dir_content[i] == -1)
       {
-        //**""**""**""**""  enter folder  **""**""**""**""
-        cout << "trying to enter dir\n";
-        int dest_dir_index = curr_dir_content[i];
-        cout << "dest_dir_index: " << dest_dir_index << " \n";
-        //Go up
-
-
-
-          //Find folder
-          vector<string> dir_path_temp = dir_path;
-          dir_path_temp.push_back(destpath);
-          int parent_id = curr_dir_content[0];
-          cout << "1\n";
-          if (parent_id == -2)
-          {
-            parent_id = get_parent_index(dir_path);
-          }
-
-          cout << "2\n";
-          void *new_dir_content_mem = calloc(ROOT_SIZE, sizeof(int));
-          int* new_dir_content= (int*)new_dir_content; // NEED TO FREE THIS POINTER ALERT ALERT!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-          // for (int e = 0; e < ROOT_SIZE; e++)
-          // {
-          //   new_dir_content[e] = -1;
-          // }
-
-          for (int j = 0; j < ROOT_SIZE; j++)
-          {
-            vector<string> dir_path_to_compare = dir_path;
-            dir_path_to_compare.push_back(dir_entries[curr_dir_content[j]].file_name);
-            cout << "3\n";
-            if (dir_path_to_compare == dir_path_temp)
-            {
-              //add to new directory dir content
-              new_dir_content = init_dir_content(dir_path_temp);
-
-              // int dir_entry_index;
-              cout << "4\n";
-              for (int r = 1; r < ROOT_SIZE; r++)
-              {
-                if(new_dir_content[r] == -1)
-                {
-                  cout << "5\n";
-                  new_dir_content[r] = dir_entry_index;
-                  break;
-                }
-              }
-              for (int i = 0; i < ROOT_SIZE; i++)
-              {
-                cout << new_dir_content[i] << "\n";
-              }
-            int temp_dir_content[ROOT_SIZE];
-
-            for(int i = 0; i < ROOT_SIZE; i++)
-            {
-              temp_dir_content[i] = new_dir_content[i];
-            }
-
-            cout << dir_entries[dest_dir_index].first_blk << "\n";
-            disk.write(dir_entries[dest_dir_index].first_blk, (uint8_t*)temp_dir_content);
-
-              //remove from past Directory
-            if (dir_path.size() != 1)
-            {
-              for (int r = 1; r < ROOT_SIZE; r++)
-              {
-                  cout << "curr_dir_content[r]: " << curr_dir_content[r] << " =  " << "dir_entry_index: " << dir_entry_index << "\n";
-                if (curr_dir_content[r] == dir_entry_index)
-                {
-                  curr_dir_content[r] == -1;
-                  break;
-                }
-              }
-              for (int i = 0; i < ROOT_SIZE; i++)
-              {
-                cout << curr_dir_content[i] << "\n";
-              }
-              cout << "parent_id: " << parent_id << "\n";
-              cout << "dir_path size: " << dir_path.size() << "\n";
-
-              disk.write(dir_entries[parent_id].first_blk, (uint8_t*)curr_dir_content);
-              free(new_dir_content_mem);
-              return 0;
-            }
-
-            else
-            {
-              for (int r = 0; r < ROOT_SIZE; r++)
-              {
-                if (curr_dir_content[r] == dir_entry_index)
-                {
-                  curr_dir_content[r] = -1;
-                  free(new_dir_content_mem);
-                  return 0;
-                }
-              }
-              free(new_dir_content_mem);
-              return 0;
-            }
-            free(new_dir_content_mem);
-            return 0;
-          }
-        cout << "Directory not found! \n";
-        return 0;
+        parent_dir_content[i] = dir_entry_index;
+        break;
       }
     }
 
-    // find source file
-    for(int i = 0; i < ROOT_SIZE; i++)
-    {
-      if(dir_entries[i].file_name == sourcepath)
-      {
-        strcpy(dir_entries[i].file_name, destpath.c_str());
-        disk.write(ROOT_BLOCK, (uint8_t*)dir_entries); // dir_entries in the file
-
-        return 0;
-      }
-    }
-
-    cout << "No file with the name: " << sourcepath.c_str() << "\n";
+    disk.write(dir_entries[dir_path_temp.back()].first_blk, (uint8_t*)parent_dir_content);
     return 0;
- }
+  }
+  cout << "4\n";
+  //find index of sourcefile
+  int dir_entry_index;
+  for (int i = 0; i < ROOT_SIZE; i++) // possible dupe
+  {
+    if (dir_entries[temp_curr_dir_content_source[i]].file_name == sourcepath)
+    {
+      dir_entry_index = temp_curr_dir_content_source[i];
+      break;
+    }
+  }
+  cout << "5\n";
+  // Is destpath a directory?
+  // Relative path
+  if (dir_path_temp_dest.size() != dir_path.size() || dir_path_temp_dest != dir_path || dir_path_temp_source.size() != dir_path.size() || dir_path_temp_source != dir_path)
+  {
+    cout << "5.1\n";
+    if(dir_path.size() == dir_path_temp_temp_source.size())
+    {
+      cout << "5.2\n";
+      for (int i = 0; i < ROOT_SIZE; i++)
+      {
+        if (temp_curr_dir_content_dest[i] == -1)
+        {
+          temp_curr_dir_content_dest[i] = dir_entry_index;
+          break;
+        }
+      }
+
+      for (int i = 0; i < ROOT_SIZE; i++)
+      {
+        if (dir_entries[temp_curr_dir_content_source[i]].file_name == sourcepath)
+        {
+          temp_curr_dir_content_source[i] = -1;
+          break;
+        }
+      }
+
+      disk.write(dir_entries[dir_path_temp_temp_dest.back()].first_blk, (uint8_t*) temp_curr_dir_content_dest);
+      disk.write(dir_entries[dir_path_temp_temp_source.back()].first_blk, (uint8_t*) temp_curr_dir_content_source);
+
+      for (int i = 0; i < ROOT_SIZE; i++)
+      {
+        if (curr_dir_content[i] == dir_entry_index)
+        {
+          curr_dir_content[i] = -1;
+          break;
+        }
+      }
+      return 0;
+    }
+
+    if(dir_path.size() != dir_path_temp_temp_source.size())
+    {
+      for (int i = 0; i < ROOT_SIZE; i++)
+      {
+        if (dir_entries[temp_curr_dir_content_source[i]].file_name == sourcepath)
+        {
+          cout << "temp_curr_dir_content_source[i]: " << temp_curr_dir_content_source[i] << endl;
+          dir_entry_index = temp_curr_dir_content_source[i];
+          break;
+        }
+      }
+
+      cout << "5.3\n";
+      for (int i = 0; i < ROOT_SIZE; i++)
+      {
+        if (temp_curr_dir_content_dest[i] == -1)
+        {
+          cout << "5.3.1\n";
+          temp_curr_dir_content_dest[i] = dir_entry_index;
+          if (dir_path_temp_dest == dir_path)
+          {
+            cout << "5.3.1.1\n";
+            curr_dir_content[i] = dir_entry_index;
+          }
+          break;
+        }
+      }
+
+      if (dir_path_temp_temp_dest.size() != 0)
+      {
+        cout << dir_path_temp_temp_dest.back() << "\n";
+        disk.write(dir_entries[dir_path_temp_temp_dest.back()].first_blk, (uint8_t*) temp_curr_dir_content_dest);
+      }
+      for (int i = 0; i < ROOT_SIZE; i++)
+      {
+        if (temp_curr_dir_content_source[i] == dir_entry_index)
+        {
+          cout << "5.3.2\n";
+          temp_curr_dir_content_source[i] = -1;
+          if (dir_path_temp_source == dir_path)
+          {
+            curr_dir_content[i] = -1;
+          }
+          break;
+        }
+      }
+      cout << dir_path_temp_temp_source.back() << "\n";
+      disk.write(dir_entries[dir_path_temp_temp_source.back()].first_blk, (uint8_t*) temp_curr_dir_content_source);
+      return 0;
+    }
+  }
+
+  for(int i = 0; i < ROOT_SIZE; i++) //GÖR OM HELA ?
+  {
+    cout << "i: " << i << endl;
+    if((dir_entries[temp_curr_dir_content_dest[i]].file_name == destpath) && (dir_entries[temp_curr_dir_content_dest[i]].type == TYPE_DIR))
+    {
+      //**""**""**""**""  enter folder  **""**""**""**""
+      int dest_dir_index = temp_curr_dir_content_dest[i];
+      cout << "5.1\n";
+      //Find folder
+      vector<int> dir_path_find = dir_path_temp_temp_dest;
+
+      for(int i = 0; i < dir_path_find.size(); i++)
+      {
+        cout << "dir_path_find: " << dir_path_find[i] << endl;
+        cout << "temp_cur_dir_contetnt_dest: " << temp_curr_dir_content_dest[i] << endl;
+      }
+
+      //*""**""**""**""**""GÖR OM DESTPATH TILL INDEX**""**""*""*""*"*"*"*"*
+      dir_path_find.push_back(dest_dir_index);
+      int dir_entry_index;
+      cout << "5.2\n";
+      for(int i = 0; ROOT_SIZE; i++)
+      {
+        if(dir_entries[temp_curr_dir_content_dest[i]].file_name == sourcepath)
+        {
+          dir_entry_index = temp_curr_dir_content_dest[i];
+          break;
+        }
+      }
+      cout << "6\n";
+      if (dir_path_temp_temp_dest.size() != 0)
+      {
+        if (accessrights_check(dir_path_temp_temp_dest.back(), WRITE) == -1)
+        {
+          cout << "You do not the rights to write to one or both of these directories! \n";
+          return 0;
+        }
+      }
+      cout << "7\n";
+      if (accessrights_check(dir_path_find.back(), WRITE) == -1)
+      {
+        cout << "You do not the rights to write to one or both of these directories! \n";
+        return 0;
+      }
+      cout << "8 \n";
+
+      if(dir_path_temp_temp_dest.size() == 0)
+      {
+              cout << "8.1 \n";
+        if (dir_path_temp_dest.size() != dir_path.size() || dir_path_temp_dest != dir_path)
+        {
+                cout << "8.2 \n";
+          for (int i = 0; i < ROOT_SIZE; i++)
+          {
+            if (dir_entries[curr_dir_content[i]].file_name == sourcepath)
+            {
+                    cout << "8.2 \n";
+            curr_dir_content[i] = -1;
+            break;
+            }
+          }
+          disk.write(dir_entries[dir_path.back()].first_blk, (uint8_t*)curr_dir_content);
+          return 0;
+        }
+        cout << "9\n";
+        int new_dir_content[BLOCK_SIZE];
+        cout << "dir_path_find.back = " << dir_path_find.back() << endl;
+        disk.read(dir_entries[dir_path_find.back()].first_blk, (uint8_t*)new_dir_content);
+
+        for(int i = 0; i < ROOT_SIZE; i++)
+        {
+          cout << new_dir_content[i] << endl;
+        }
+
+
+        // check if name exists in destination
+        // for (int i = 0; i < ROOT_SIZE; i++)
+        // {
+        //   if (sourcepath == dir_entries[new_dir_content[i]].file_name)
+        //   {
+        //     cout << "Already an item with the same name in root" << endl;
+        //     return -1;
+        //   }
+        // }
+        cout << "10 \n";
+        for(int i = 0; i < ROOT_SIZE; i++)
+        {
+          if(curr_dir_content[i] == dir_entry_index)
+          {
+            curr_dir_content[i] = -1;
+            break;
+          }
+        }
+        cout << "11\n";
+        for(int i = 0; i < ROOT_SIZE; i++)
+        {
+          if(new_dir_content[i] == -1)
+          {
+            new_dir_content[i] = dir_entry_index;
+            break;
+          }
+        }
+        cout << "12\n";
+        disk.write(dir_entries[dir_path_find.back()].first_blk, (uint8_t*)new_dir_content);
+
+        return 0;
+      }
+
+      int new_dir_content[BLOCK_SIZE];
+      disk.read(dir_entries[dir_path_find.back()].first_blk, (uint8_t*)new_dir_content);
+
+      // check if name exists in the new directory
+      for (int i = 0; i < ROOT_SIZE; i++)
+      {
+        if (sourcepath == dir_entries[new_dir_content[i]].file_name)
+        {
+          cout << "Already an item with the same name in root" << endl;
+          return -1;
+        }
+      }
+      cout << "3 \n";
+      // gotta move after dupe check
+      for(int i = 0; i < ROOT_SIZE; i++)
+      {
+        if(curr_dir_content[i] == dir_entry_index)
+        {
+          curr_dir_content[i] = -1;
+          break;
+        }
+      }
+
+      disk.write(dir_entries[dir_path_temp_temp_dest.back()].first_blk, (uint8_t*)temp_curr_dir_content_dest);
+
+      for(int i = 0; i < ROOT_SIZE; i++)
+      {
+        if(new_dir_content[i] == -1)
+        {
+          new_dir_content[i] = dir_entry_index;
+          break;
+        }
+      }
+      disk.write(dir_entries[dir_path_find.back()].first_blk, (uint8_t*)new_dir_content);
+      return 0;
+    }
+  }
+
+  // find source file
+  for(int i = 0; i < ROOT_SIZE; i++)
+  {
+    // check so destpath doesn't exist
+    for( int j = 0; j < ROOT_SIZE; j++)
+    {
+      if(dir_entries[j].file_name == destpath)
+      {
+        cout << "name already exists or is not a directory" << endl;
+        return -1;
+      }
+    }
+    if(dir_entries[i].file_name == sourcepath)
+    {
+      strcpy(dir_entries[i].file_name, destpath.c_str());
+      disk.write(ROOT_BLOCK, (uint8_t*)dir_entries); // dir_entries in the file
+      return 0;
+    }
+  }
+  cout << "No file with the name: " << sourcepath.c_str() << "\n";
+  return 0;
 }
 
 // rm <filepath> removes / deletes the file <filepath>
 int
-FS::rm(std::string filepath)
+FS::rm(std::string filepath, int from_append) // KLAAAAAAAAAAAAAAAAAAAAAAAAAAAR
 {
-    std::cout << "FS::rm(" << filepath << ")\n";
-
-    // TODO REMOVE FROM DIR_CONTENT
-
-    int name_found = 0;
-    int dir_entry_index;
-    for(int i = 0; i < ROOT_SIZE; i++)
+    std::vector<int> dir_path_temp = string_to_vector_converter(filepath);
+    if (dir_path_temp.size() >= 1)
     {
-      if(dir_entries[curr_dir_content[i]].file_name == filepath)
+      if(dir_path_temp.back() == -1)
       {
-        name_found = 1;
-        dir_entry_index = curr_dir_content[i];
-        // Clear fat
-        int blocks_to_read = dir_entries[curr_dir_content[i]].size/BLOCK_SIZE;
-        if(dir_entries[curr_dir_content[i]].size%BLOCK_SIZE > 0)
+        cout << "error cant go above root" << endl;
+        return -1;
+      }
+    }
+    std::vector<int> dir_path_temp_temp = dir_path;
+    int temp_curr_dir_content[BLOCK_SIZE];
+
+
+    for(int r = 0; r < ROOT_SIZE; r++)
+    {
+      temp_curr_dir_content[r] = curr_dir_content[r];
+    }
+
+    if (dir_path_temp.size() != dir_path.size() || dir_path_temp != dir_path)
+    {
+      cout << "is relative \n";
+      cout << "path temp: " << dir_path_temp.back() << endl;
+      //cout << "path temp temp: " << dir_path_temp_temp.back() << endl;
+      dir_path_temp_temp = dir_path_temp;
+      cout << "path temp temp: " << dir_path_temp_temp.back() << endl;
+      cout << "filename: " << dir_entries[dir_path_temp_temp.back()].file_name << endl;
+      cout << "blk: "  << dir_entries[dir_path_temp_temp.back()].first_blk << endl;
+      // satsen nedan läser in fel block vid mapp sök
+      if (dir_path_temp.size() != 0)
+      {
+      disk.read(dir_entries[dir_path_temp_temp.back()].first_blk, (uint8_t*)temp_curr_dir_content);
+      }
+
+      if (dir_path_temp.size() == 0)
+      {
+        std::vector<int> root_content;
+        root_content = init_dir_content(root_content);
+        int dir_content[ROOT_SIZE];
+
+        for (int l = 0; l < ROOT_SIZE; l++)
+        {
+          temp_curr_dir_content[l] = 0;
+        }
+
+        for (int p = 0; p < root_content.size(); p++)
+        {
+          temp_curr_dir_content[p] = root_content[p];
+        }
+      }
+
+      //Ful lösning för att hitta namnet
+      std::vector<int> dir_path_name_find = dir_path;
+      std::vector<int> path;
+      std::vector<string> path_str;
+      string dir;
+      char delimiter = '/';
+      int temp_dir_content[BLOCK_SIZE];
+      int filepath_size = filepath.length();
+      char filepath_char[filepath_size];
+      strcpy(filepath_char, filepath.c_str());
+
+      membuf sbuf(filepath_char, filepath_char + sizeof(filepath_char));
+      istream in(&sbuf);
+
+      while (getline(in, dir, delimiter))
+      {
+        path_str.push_back(dir);
+      }
+      filepath = path_str.back();
+      cout << "filepah: " <<  filepath << endl;
+      cout << "dir_path_temp_temp size: " <<  dir_path_temp_temp.size() << endl;
+      cout << "dir_path_temp_temp size: " <<  dir_path_temp_temp.size() << endl;
+      // IF in root case
+      if (dir_path_temp_temp.size() == 0) // if in root
+      {
+        cout <<"we in root" << endl;
+        cout << "1" << endl;
+        std::vector<int> root_dir_content;
+        root_dir_content = init_dir_content(dir_path);
+        int dir_entry_index;
+        for (int i = 0; i <  ROOT_SIZE; i++)
+        {
+          cout << "file name in root: " << dir_entries[root_dir_content[i]].file_name << endl;
+          if (dir_entries[root_dir_content[i]].file_name == filepath)
+          {
+            cout << "found dir ent index of " << filepath << " with id: " << root_dir_content[i] << endl;
+            dir_entry_index = root_dir_content[i];
+            break;
+          }
+        }
+
+        int blocks_to_read = dir_entries[dir_entry_index].size/BLOCK_SIZE;
+        if(dir_entries[dir_entry_index].size%BLOCK_SIZE > 0)
         {
           blocks_to_read++;
         }
 
-        int curr_block = dir_entries[curr_dir_content[i]].first_blk;
+        int curr_block = dir_entries[dir_entry_index].first_blk;
         int index = curr_block;
-        for (int i = 0; i < blocks_to_read; i++) {
+        for (int i = 0; i < blocks_to_read; i++)
+        {
           index = curr_block;
-          if(curr_block != -1){
-          curr_block = fat[curr_block];
+          if(curr_block != -1)
+          {
+            curr_block = fat[curr_block];
           }
           fat[index] = FAT_FREE;
+        }
+        cout << "2" << endl;
+        // Clear dir entry
+        struct dir_entry temp_entry;
+        strcpy(temp_entry.file_name, "");
+        temp_entry.size = 0;
+        temp_entry.first_blk = 0;
+        temp_entry.type = 0;
+        temp_entry.access_rights = 0;
+        dir_entries[dir_entry_index] = temp_entry;
 
+        disk.write(FAT_BLOCK, (uint8_t*)fat);
+        disk.write(ROOT_BLOCK, (uint8_t*)dir_entries);
+        return 0;
+      }
+    }
+
+    if (from_append != 2)
+    {
+      std::cout << "FS::rm(" << filepath << ")\n";
+    }
+
+    // is not relative
+    cout << "3\n";
+    int name_found = 0;
+    int dir_entry_index;
+    for(int i = 0; i < ROOT_SIZE; i++)
+    {
+      cout << dir_entries[temp_curr_dir_content[i]].file_name << " = " << filepath << endl;
+      if(dir_entries[temp_curr_dir_content[i]].file_name == filepath) // update: bytte ut sök på man till sök på dir index
+      {
+        cout << "2\n";
+        name_found = 1;
+        dir_entry_index = temp_curr_dir_content[i];
+
+        // if folder with content, throw error
+        if(dir_entries[dir_entry_index].type == TYPE_DIR)
+        {
+          cout << "3\n";
+          int temp_dir_content[BLOCK_SIZE];
+          cout << "looking at temp_curr_dir_content of " << dir_entries[dir_entry_index].file_name << endl;
+          disk.read(dir_entries[dir_entry_index].first_blk, (uint8_t*)temp_dir_content);
+          for(int j = 0; j < ROOT_SIZE; j++) // Ska inte kollas om det en relativ path!!
+          {
+            if (temp_dir_content[j] != -1)
+            {
+              cout << "4\n";
+              cout << "Empty the directory before removing it." << endl;
+              return -1;
+            }
+          }
+        }
+
+        if (accessrights_check(dir_entry_index, WRITE) == -1 && from_append == 1)
+        {
+          cout << "You do not have the rights to write to this file! \n";
+          return 0;
+        }
+
+        if (dir_path_temp_temp.size() != 0)
+        {
+          if (accessrights_check(dir_path_temp_temp.back(), WRITE) == -1 && from_append == 1)
+          {
+            cout << "You do not have the rights to write to this directory! \n";
+            return 0;
+          }
+        }
+
+        // Clear fat
+        int blocks_to_read = dir_entries[temp_curr_dir_content[i]].size/BLOCK_SIZE;
+        if(dir_entries[temp_curr_dir_content[i]].size%BLOCK_SIZE > 0)
+        {
+          blocks_to_read++;
+        }
+
+        int curr_block = dir_entries[temp_curr_dir_content[i]].first_blk;
+        int index = curr_block;
+        for (int i = 0; i < blocks_to_read; i++)
+        {
+          index = curr_block;
+          if(curr_block != -1)
+          {
+            curr_block = fat[curr_block];
+          }
+          fat[index] = FAT_FREE;
         }
 
         // Clear dir entry
@@ -1181,13 +1964,18 @@ FS::rm(std::string filepath)
         temp_entry.first_blk = 0;
         temp_entry.type = 0;
         temp_entry.access_rights = 0;
-        dir_entries[curr_dir_content[i]] = temp_entry;
+        dir_entries[temp_curr_dir_content[i]] = temp_entry;
 
         for (int j = 0; j < ROOT_SIZE; j++)
         {
-          if (curr_dir_content[j] == dir_entry_index)
+          if (temp_curr_dir_content[j] == dir_entry_index)
           {
-            curr_dir_content[j] = -1;
+            temp_curr_dir_content[j] = -1;
+            if(dir_path_temp.size() == 0)
+            {
+              curr_dir_content[i] = -1;
+            }
+            break;
           }
         }
       }
@@ -1199,59 +1987,188 @@ FS::rm(std::string filepath)
       return 0;
     }
 
-    for (int j = 0; j < ROOT_SIZE; j++)
-    {
-
-      cout << "curr_dir_content: " << curr_dir_content[j] << "\n";
-    }
-
     // Save curr dir
-    int parent_id = curr_dir_content[0];
     int curr_dir_id;
 
-    if(parent_id == -2)
+    if(dir_path_temp_temp.size() == 0)
     {
-      parent_id = get_parent_index(dir_path);
-    }
-
-
-    if(dir_path.size() == 1)
-    {
+      cout << "im here? \n";
+      disk.write(FAT_BLOCK, (uint8_t*)fat);
+      disk.write(ROOT_BLOCK, (uint8_t*)dir_entries);
       return 0;
     }
 
+    // if remove folder, shall we remove content? NO!!!
+    int parent_dir_content[BLOCK_SIZE];
+    disk.read(dir_entries[dir_path_temp_temp.back()].first_blk, (uint8_t*)parent_dir_content);
 
-    cout <<  "dir_block: " << dir_entries[parent_id].first_blk << "\n";
-    int* parent_dir_content = (int*)calloc(BLOCK_SIZE, sizeof(char));
-    cout << "imma read \n";
-    disk.read(dir_entries[parent_id].first_blk, (uint8_t*)parent_dir_content);
-    cout << "shit i gotz here ";
-    for(int i = 0; i < ROOT_SIZE; i++){
-
-      if(dir_entries[parent_dir_content[i]].file_name == dir_path.back())
+    for (int i = 0; i < ROOT_SIZE; i++)
+    {
+      if(parent_dir_content[i] == dir_entry_index)
       {
-        curr_dir_id = parent_dir_content[i];
+        parent_dir_content[i] = -1;
+        temp_curr_dir_content[i] = -1; //stoopid
+        if(dir_path_temp == dir_path)
+        {
+          curr_dir_content[i] = -1;
+        }
+        break;
       }
     }
-    cout <<  "dir_block: " << dir_entries[curr_dir_id].first_blk << "\n";
-    disk.write(dir_entries[curr_dir_id].first_blk, (uint8_t*)curr_dir_content);
-
-    std::cout << "FS::create(" << filepath << ")\n";
-
-
+    disk.write(dir_entries[dir_path_temp_temp.back()].first_blk, (uint8_t*)parent_dir_content);
     disk.write(ROOT_BLOCK, (uint8_t*)dir_entries); // dir_entries in the file
     disk.write(FAT_BLOCK, (uint8_t*)fat); // Fat in the file
-
     return 0;
 }
 
 // append <filepath1> <filepath2> appends the contents of file <filepath1> to
 // the end of file <filepath2>. The file <filepath1> is unchanged.
 int
-FS::append(std::string filepath1, std::string filepath2)
+FS::append(std::string filepath1, std::string filepath2) //KLAR
 {
     std::cout << "FS::append(" << filepath1 << "," << filepath2 << ")\n";
+    string filepath2_backup = filepath2;
+    string filepath1_backup = filepath1;
+    //FILE 1
+    std::vector<int> dir_path_temp1 = string_to_vector_converter(filepath1);
+    // cout << "saijs " << dir_path_temp1.size() << endl;
+    if (dir_path_temp1.size() >= 1)
+    {
+      if(dir_path_temp1.back() == -1)
+      {
+        cout << "error cant go above root" << endl;
+        return -1;
+      }
+    }
+    std::vector<int> dir_path_temp_temp1 = dir_path;
+    int temp_curr_dir_content1[BLOCK_SIZE];
 
+    cout << "1\n";
+
+    for(int r = 0; r < ROOT_SIZE; r++)
+    {
+      temp_curr_dir_content1[r] = curr_dir_content[r];
+    }
+
+    if (dir_path_temp1.size() != dir_path.size() || dir_path_temp1 != dir_path)
+    {
+      dir_path_temp_temp1 = dir_path_temp1;
+
+      if (dir_path_temp1.size() != 0)
+      {
+        disk.read(dir_entries[dir_path_temp_temp1.back()].first_blk, (uint8_t*)temp_curr_dir_content1);
+      }
+
+      if (dir_path_temp1.size() == 0)
+      {
+        std::vector<int> root_content;
+        root_content = init_dir_content(root_content);
+        int dir_content[ROOT_SIZE];
+
+        for (int l = 0; l < ROOT_SIZE; l++)
+        {
+          temp_curr_dir_content1[l] = 0;
+        }
+
+        for (int p = 0; p < root_content.size(); p++)
+        {
+          temp_curr_dir_content1[p] = root_content[p];
+        }
+      }
+
+
+      //Ful lösning för att hitta namnet
+      std::vector<int> dir_path_name_find = dir_path;
+      std::vector<int> path;
+      std::vector<string> path_str;
+      string dir;
+      char delimiter = '/';
+      int temp_dir_content[BLOCK_SIZE];
+      int filepath1_size = filepath1.length();
+      char filepath1_char[filepath1_size];
+      strcpy(filepath1_char, filepath1.c_str());
+
+      membuf sbuf(filepath1_char, filepath1_char + sizeof(filepath1_char));
+      istream in(&sbuf);
+
+      while (getline(in, dir, delimiter))
+      {
+        path_str.push_back(dir);
+      }
+      filepath1 = path_str.back();
+    }
+    cout << "2\n";
+    //FILE 2
+    std::vector<int> dir_path_temp2 = string_to_vector_converter(filepath2);
+    cout << "CONVERTED FILE TVå" << endl;
+    if (dir_path_temp2.size() >= 1)
+    {
+      if(dir_path_temp2.back() == -1)
+      {
+        cout << "error cant go above root" << endl;
+        return -1;
+      }
+    }
+    std::vector<int> dir_path_temp_temp2 = dir_path;
+    int temp_curr_dir_content2[BLOCK_SIZE];
+
+    for(int r = 0; r < ROOT_SIZE; r++)
+    {
+      temp_curr_dir_content2[r] = curr_dir_content[r];
+    }
+    cout << "dirpath temp 2 sajs: " << dir_path_temp2.size() << endl;
+    // cout << "dirpath temp 2 back: " << dir_path_temp2.back() << endl;
+    cout << "dirpath sajs: " << dir_path.size() << endl;
+
+    if (dir_path_temp2.size() != dir_path.size() || dir_path_temp2 != dir_path)
+    {
+      cout << "Entered is relative path2" << endl;
+      dir_path_temp_temp2 = dir_path_temp2;
+      if (dir_path_temp2.size() != 0)
+      {
+        disk.read(dir_entries[dir_path_temp_temp2.back()].first_blk, (uint8_t*)temp_curr_dir_content2);
+      }
+
+      if (dir_path_temp2.size() == 0)
+      {
+        std::vector<int> root_content;
+        root_content = init_dir_content(root_content);
+        int dir_content[ROOT_SIZE];
+
+        for (int l = 0; l < ROOT_SIZE; l++)
+        {
+          temp_curr_dir_content2[l] = 0;
+        }
+
+        for (int p = 0; p < root_content.size(); p++)
+        {
+          temp_curr_dir_content2[p] = root_content[p];
+        }
+      }
+
+      //Ful lösning för att hitta namnet
+      std::vector<int> dir_path_name_find = dir_path;
+      std::vector<int> path;
+      std::vector<string> path_str;
+      string dir;
+      char delimiter = '/';
+      int temp_dir_content[BLOCK_SIZE];
+      int filepath2_size = filepath2.length();
+      char filepath2_char[filepath2_size];
+      strcpy(filepath2_char, filepath2.c_str());
+
+      membuf sbuf(filepath2_char, filepath2_char + sizeof(filepath2_char));
+      istream in(&sbuf);
+
+      while (getline(in, dir, delimiter))
+      {
+        path_str.push_back(dir);
+      }
+      filepath2 = path_str.back();
+      cout <<"filepath 2: " << filepath2 << endl;
+    }
+    cout <<"filepath 2 AGAIN: " << filepath2 << endl;
+    cout << "3\n";
     // *""*""*""*""*"" FIND FILES *""*""*""*""*""**
     //File 1
     int dir_entry_index_1 = -1;
@@ -1259,32 +2176,41 @@ FS::append(std::string filepath1, std::string filepath2)
     int entry_index_1;
     int file_found_1 = 0;
 
-    // Find file
+    // Find file source
     for(int i = 0; i < ROOT_SIZE; i++){
 
-      if(dir_entries[i].file_name == filepath1)
+      if(dir_entries[temp_curr_dir_content1[i]].file_name == filepath1)
       {
+            cout << "4\n";
         file_found_1 = 1;
-        entry_index_1 = i;
-        blocks_to_read_1 = dir_entries[i].size/BLOCK_SIZE;
-        dir_entry_index_1 = i;
+        entry_index_1 = temp_curr_dir_content1[i];
+        // check if dir
+
+        if(dir_entries[entry_index_1].type == TYPE_DIR)
+        {
+          cout << "Cannot not append directory." << endl;
+          return -1;
+        }
+        blocks_to_read_1 = dir_entries[temp_curr_dir_content1[i]].size/BLOCK_SIZE;
+        dir_entry_index_1 = temp_curr_dir_content1[i];
+            cout << "5\n";
         // Add rest block if exists
-        if(dir_entries[i].size%BLOCK_SIZE > 0)
+        if(dir_entries[temp_curr_dir_content1[i]].size%BLOCK_SIZE > 0)
         {
           blocks_to_read_1++;
         }
         break;
       }
     }
-
-
+    cout << "6\n";
     if (file_found_1 == 0)
     {
       cout << "No file with that name found, try again\n";
       return 0;
     }
 
-    if(blocks_to_read_1 == 0){
+    if(blocks_to_read_1 == 0)
+    {
       return -1;
     }
 
@@ -1293,35 +2219,59 @@ FS::append(std::string filepath1, std::string filepath2)
     int blocks_to_read_2;
     int entry_index_2;
     int file_found_2 = 0;
-
+    cout << "6.1\n";
     // Find file
-    for(int i = 0; i < ROOT_SIZE; i++){
 
-      if(dir_entries[i].file_name == filepath2)
+    for(int i = 0; i < ROOT_SIZE; i++)
+    {
+      cout << "temp_curr_dir_content2[i]: " << temp_curr_dir_content2[i] << endl;
+      if(dir_entries[temp_curr_dir_content2[i]].file_name == filepath2)
       {
+        cout << "6.2\n";
         file_found_2 = 1;
-        entry_index_2 = i;
-        blocks_to_read_2 = dir_entries[i].size/BLOCK_SIZE;
-        dir_entry_index_2 = i;
+        entry_index_2 = temp_curr_dir_content2[i];
+        // check if dir
+        if(dir_entries[entry_index_2].type == TYPE_DIR)
+        {
+          cout << "Cannot not append directory." << endl;
+          return -1;
+        }
+                cout << "6.3\n";
+        blocks_to_read_2 = dir_entries[temp_curr_dir_content2[i]].size/BLOCK_SIZE;
+        dir_entry_index_2 = temp_curr_dir_content2[i];
+                cout << "6.4\n";
         // Add rest block if exists
-        if(dir_entries[i].size%BLOCK_SIZE > 0)
+        if(dir_entries[temp_curr_dir_content2[i]].size%BLOCK_SIZE > 0)
         {
           blocks_to_read_2++;
         }
         break;
       }
     }
-
+            cout << "7\n";
     if (file_found_2 == 0)
     {
       cout << "No file with that name found, try again\n";
       return 0;
     }
 
-    if(blocks_to_read_2 == 0){
+    if(blocks_to_read_2 == 0)
+    {
       return -1;
     }
+            cout << "8\n";
+    if (accessrights_check(dir_entry_index_1, WRITE) == -1 || accessrights_check(dir_entry_index_2, WRITE) == -1)
+    {
+      cout << "You do not have the rights to write to one or both of these files! \n";
+      return 0;
+    }
 
+    if (accessrights_check(dir_entry_index_1, READ) == -1 || accessrights_check(dir_entry_index_2, READ) == -1)
+    {
+      cout << "You do not have the rights to read one or both of these files! \n";
+      return 0;
+    }
+            cout << "9\n";
     // *""*""*""*""*"" READ FILE INFO *""*""*""*""*""**
     //file 1
     uint32_t size_of_file_1 = dir_entries[dir_entry_index_1].size;
@@ -1353,7 +2303,7 @@ FS::append(std::string filepath1, std::string filepath2)
         next_block_1 = fat[next_block_1];
       }
     }
-
+            cout << "10\n";
     //file 2;
     char* block_content_2;
     block_content_2 = (char*)calloc(BLOCK_SIZE, sizeof(char));
@@ -1371,7 +2321,7 @@ FS::append(std::string filepath1, std::string filepath2)
         next_block_2 = fat[next_block_2];
       }
     }
-
+            cout << "11\n";
     // *""*""*""*""*"" APPEND DATA *""*""*""*""*""**
     strcat(read_data_2, read_data_1);
 
@@ -1380,13 +2330,10 @@ FS::append(std::string filepath1, std::string filepath2)
     //get file size
     int start_block;
     string string_to_eval = read_data_2;
-    // convert string_to_eval to uint8_t*
     uint8_t* block = (uint8_t*)string_to_eval.c_str();
 
     int size_of_file = string_to_eval.length();
     int size_of_file_temp = size_of_file;
-
-    //insert data into directory entry
 
     // check amount of block
     int num_blocks = size_of_file / BLOCK_SIZE + 1;
@@ -1396,7 +2343,7 @@ FS::append(std::string filepath1, std::string filepath2)
     {
       num_blocks = num_blocks_temp;
     }
-
+            cout << "12\n";
     int fitcheck = file_fit_check(num_blocks);
 
     if (fitcheck == 0)
@@ -1406,7 +2353,11 @@ FS::append(std::string filepath1, std::string filepath2)
     }
 
     // *""*""*""*""*"" REMOVE FILE 2 *""*""*""*""*""**
-    rm(filepath2);
+    cout << "calling rm from append, file path: "<< filepath2 << endl;
+
+    ls();
+    rm(filepath2_backup , 2); // skicka in den hela pathen, inte ombyggda
+    ls();
 
     int free_spaces[num_blocks];
     int free_space_counter = 0;
@@ -1421,9 +2372,7 @@ FS::append(std::string filepath1, std::string filepath2)
 
       if (free_space_counter >= num_blocks)
       {
-        // go back and fill
         start_block = 0;
-
         //set fat values
         int elements_in_fat_counter = 1;
         for(int j = start_block; j < 64; j++)
@@ -1440,7 +2389,6 @@ FS::append(std::string filepath1, std::string filepath2)
               fat[j] = FAT_EOF;
               break;
             }
-
             fat[j] = free_spaces[elements_in_fat_counter];
             elements_in_fat_counter++;
           }
@@ -1453,6 +2401,7 @@ FS::append(std::string filepath1, std::string filepath2)
             disk.write(j, block);
             break;
           }
+
           for (int r = 0; r < num_blocks-1; r++)
           {
             string block_to_write = string_to_eval.substr(r*BLOCK_SIZE, r*BLOCK_SIZE + BLOCK_SIZE);
@@ -1469,13 +2418,15 @@ FS::append(std::string filepath1, std::string filepath2)
       }
     }
     struct dir_entry temp_entry;
-
+                cout << "13\n";
     strcpy(temp_entry.file_name, filepath2.c_str());
 
     temp_entry.size = size_of_file;
     temp_entry.first_blk = start_block;
     temp_entry.type = type_2;
     temp_entry.access_rights = access_rights_2;
+
+    // dir_entry to root
     int dir_entry_index;
     for(int i = 0; i < ROOT_SIZE; i++)
     {
@@ -1487,98 +2438,142 @@ FS::append(std::string filepath1, std::string filepath2)
       }
     }
 
-    int i;
-
-    if (dir_path.size() == 1)
+    cout << "14\n";
+    if (dir_path_temp2 == dir_path && dir_path_temp1 == dir_path)
     {
-      i = 0;
-    }
-
-    else
-    {
-      i = 1;
-    }
-
-    for(i; i < ROOT_SIZE; i++)
-    {
-      if (curr_dir_content[i] == -1)
+      for( int i = 0; i < ROOT_SIZE; i++)
       {
-        // cout << "curr_dir_content[i]: " << curr_dir_content[i] << "\n";
-        // cout << "dir_entry_index " << dir_entry_index << "\n";
-        // cout << "current i:  " << dir_entry_index << "\n";
-
-        curr_dir_content[i] = dir_entry_index;
-        break;
+        cout << "i: " << i << endl;
+        if (temp_curr_dir_content2[i] == -1)
+        {
+          temp_curr_dir_content2[i] = dir_entry_index;
+          if(dir_path_temp2.size() == 0)
+          {
+            curr_dir_content[i] = dir_entry_index;
+          }
+          break;
+        }
       }
     }
-    // cout << "4 \n";
-    disk.write(ROOT_BLOCK, (uint8_t*)dir_entries); // dir_entries in the file
 
-    int parent_id = curr_dir_content[0];
-
-    if (parent_id == -2)
+    if (dir_path_temp2 == dir_path && dir_path_temp1 != dir_path)
     {
-      parent_id = get_parent_index(dir_path);
+      for( int i = 0; i < ROOT_SIZE; i++)
+      {
+        cout << "i2: " << i << endl;
+        if (temp_curr_dir_content2[i] == -1)
+        {
+          curr_dir_content[i] = dir_entry_index;
+          break;
+        }
+      }
     }
 
-    else
-    {
-      parent_id = curr_dir_content[0];
-    }
+    disk.write(ROOT_BLOCK, (uint8_t*)dir_entries);
 
-    if(dir_path.size() == 1)
+    cout << "dir_path_temp2 sajs: "<< dir_path_temp_temp2.size() << endl;
+    if(dir_path_temp_temp2.size() == 0)
     {
+
       return 0;
     }
-
+    cout << "15\n";
     //REMOVING THIS PRINT CAUSES THE CODE TO SEGFAULT
     /**DONT TOUCH**/ cout << endl; //DONT TOUCH
     //REMOVING THIS PRINT CAUSES THE CODE TO SEGFAULT
+    cout << "gonna save changes \n";
+    cout << dir_path_temp_temp2.back() << endl;
+    cout << dir_path_temp_temp2.size() << endl;
+    for(int i =  0; i < ROOT_SIZE; i++)
+    {
+      cout << temp_curr_dir_content2[i] << endl;
+    }
+    if (dir_path_temp_temp2.size() != 0)
+    {
 
-    // cout << "4.2 \n";
-    // if (dir_path.size() != 1 || parent_id != -2)
-    // {
-    //   int curr_dir_id;
-    //   int* parent_dir_content = (int*)calloc(ROOT_SIZE, sizeof(int));
-    //   disk.read(dir_entries[parent_id].first_blk, (uint8_t*)parent_dir_content);
-    //   // cout << "4.3 \n";
-    //   // cout << "shit i gotz here ";
-    //   for(int i = 0; i < ROOT_SIZE; i++){
-    //     // cout << "4.4 \n";
-    //     if(dir_entries[parent_dir_content[i]].file_name == dir_path.back())
-    //     {
-    //       // cout << "i gotz here \n";
-    //       curr_dir_id = parent_dir_content[i];
-    //       break;
-    //     }
-      // }
-      // cout <<  "dir_block: " << dir_entries[curr_dir_id].first_blk << "\n";
-      disk.write(dir_entries[parent_id].first_blk, (uint8_t*)curr_dir_content);
-    // }
-    cout << "5 \n";
-
-    // free(block_content);
-    // free(read_data);
-
-    // return 0;
-    // cout << "block_content_1 \n";
-    // free(block_content_1);
-    // cout << "block_content_2 \n";
-    // free(block_content_2);
-    // cout << "read_data_1 \n";
-    // free(read_data_1);
-    // cout << "freeing read_data_2 \n";
-    // free(read_data_2);
+      int block_to_write = dir_entries[dir_path_temp_temp2.back()].first_blk;
+      disk.write(block_to_write, (uint8_t*)temp_curr_dir_content2);
+    }
     return 0;
 }
 
 int
-FS::mkdir(std::string dirpath)
+FS::mkdir(std::string dirpath) //Probably klar
 {
     std::cout << "FS::mkdir(" << dirpath << ")\n";
     int start_block;
     int num_blocks = 1;
+    cout << "1\n";
+    std::vector<int> dir_path_temp = string_to_vector_converter(dirpath);
 
+    if (dir_path_temp.size() >= 1)
+    {
+      if(dir_path_temp.back() == -1)
+      {
+        cout << "error cant go above root" << endl;
+        return -1;
+      }
+    }
+
+    std::vector<int> dir_path_temp_temp = dir_path;
+    int temp_curr_dir_content[BLOCK_SIZE];
+    cout << "2\n";
+
+    for(int r = 0; r < ROOT_SIZE; r++)
+    {
+      temp_curr_dir_content[r] = curr_dir_content[r];
+    }
+    cout << "3\n";
+    if (dir_path_temp.size() != dir_path.size() || dir_path_temp != dir_path)
+    {
+      cout << "not in root in mkdir\n";
+      dir_path_temp_temp = dir_path_temp;
+
+      if (dir_path_temp.size() != 0)
+      {
+        disk.read(dir_entries[dir_path_temp_temp.back()].first_blk, (uint8_t*)temp_curr_dir_content);
+      }
+
+      if (dir_path_temp.size() == 0)
+      {
+        std::vector<int> root_content;
+        root_content = init_dir_content(root_content);
+        int dir_content[ROOT_SIZE];
+
+        for (int l = 0; l < ROOT_SIZE; l++)
+        {
+          temp_curr_dir_content[l] = 0;
+        }
+
+        for (int p = 0; p < root_content.size(); p++)
+        {
+          temp_curr_dir_content[p] = root_content[p];
+        }
+      }
+
+      //Ful lösning för att hitta namnet
+      std::vector<int> dir_path_name_find = dir_path;
+      std::vector<int> path;
+      std::vector<string> path_str;
+      string dir;
+      char delimiter = '/';
+      int temp_dir_content[BLOCK_SIZE];
+      int dirpath_size = dirpath.length();
+      char dirpath_char[dirpath_size];
+      strcpy(dirpath_char, dirpath.c_str());
+
+      membuf sbuf(dirpath_char, dirpath_char + sizeof(dirpath_char));
+      istream in(&sbuf);
+
+      while (getline(in, dir, delimiter))
+      {
+        path_str.push_back(dir);
+      }
+      dirpath = path_str.back();
+    }
+
+
+    cout << "4\n";
     int fitcheck = file_fit_check(num_blocks);
 
     if (fitcheck == 0)
@@ -1586,61 +2581,75 @@ FS::mkdir(std::string dirpath)
       cout << "Disk full!\n";
       return 0;
     }
+    cout << "5\n";
 
+    // check if name already exists in directory
+    for (int i = 0; i < ROOT_SIZE; i++)
+    {
+          cout << temp_curr_dir_content[i] << "\n";
+      if(dir_entries[temp_curr_dir_content[i]].file_name == dirpath)
+      {
+        cout << "Name already exists"<< endl;
+        return -1;
+      }
+    }
+    cout << "6\n";
+    if (dir_path_temp_temp.size() != 0)
+    {
+      if (accessrights_check(dir_path_temp_temp.back(), WRITE) == -1)
+      {
+        cout << "You do not have the rights to write to this directory! \n";
+        return 0;
+      }
+    }
+    cout << "7\n";
     int free_spaces[num_blocks];
     int free_space_counter = 0;
-    cout << "-2\n";
-      for (int i = 0; i < BLOCK_SIZE/2; i++) {
+      for (int i = 0; i < BLOCK_SIZE/2; i++)
+      {
         // check where the file can fit in the fat
-        if (fat[i] == FAT_FREE) {
+        if (fat[i] == FAT_FREE)
+        {
           free_spaces[free_space_counter] = i;
           free_space_counter++;
         }
-        cout << "-1\n";
-        if (free_space_counter >= num_blocks) {
+
+        if (free_space_counter >= num_blocks)
+        {
           // go back and fill
           start_block = i - free_space_counter + 1;
-
           //set fat values
           int elements_in_fat_counter = 1;
-          for(int j = start_block; j < start_block + num_blocks; j++) {
-            if(elements_in_fat_counter == free_space_counter) {
+          for(int j = start_block; j < start_block + num_blocks; j++)
+          {
+            if(elements_in_fat_counter == free_space_counter)
+            {
               fat[j] = FAT_EOF;
               elements_in_fat_counter++;
-            } else {
+            }
+
+            else
+            {
               fat[j] = free_spaces[elements_in_fat_counter];
               elements_in_fat_counter++;
             }
           }
           disk.write(FAT_BLOCK, (uint8_t*)fat);
-
           // write dir entry list
           struct dir_entry temp_entry;
-          cout << "0\n";
           // write content list to disk
-
-          int temp_dir_content[ROOT_SIZE]; // TODO ADD PARENT INDEX FIRST
-
+          int temp_dir_content[ROOT_SIZE];
           for(int i = 0; i < ROOT_SIZE; i++)
           {
             temp_dir_content[i] = -1;
           }
 
-          temp_dir_content[0] = get_parent_index(dir_path);
-          // cout << "parent index: " << temp_dir_content[0] << "\n";
-
-          // for(int i = 0; i < ROOT_SIZE; i++)
-          // {
-          //   cout << temp_dir_content[i] << endl;
-          // }
-          cout << "1\n";
           strcpy(temp_entry.file_name, dirpath.c_str());
 
           temp_entry.first_blk = start_block;
           temp_entry.type = TYPE_DIR;
-          temp_entry.access_rights = READ;
-          temp_entry.size = sizeof(temp_dir_content);
-
+          temp_entry.access_rights = READ + WRITE;
+          temp_entry.size = 0;
 
           // dir_entry to root block
           //find empty slot in dir entries
@@ -1649,122 +2658,288 @@ FS::mkdir(std::string dirpath)
           {
             if(dir_entries[r].first_blk == 0)
             {
-              // cout <<"Dir located at index " << r << endl;
               dir_entries[r] = temp_entry;
               dir_entry_index = r;
               break;
             }
           }
-          cout << "2\n";
 
-          int parent_index = temp_dir_content[0];
-          // cout << "parent index: " << parent_index << "\n";
+          int parent_index = dir_path_temp_temp.back();
           int parent_first_blk = dir_entries[parent_index].first_blk;
 
-          if (dir_path.size() > 1)
+          if (dir_path_temp_temp.size() != 0)
           {
             for (int j = 0; j < ROOT_SIZE; j ++)
             {
-              if (curr_dir_content[j] == -1)
+              if (temp_curr_dir_content[j] == -1)
               {
-                cout << "curr_dir_content: " <<curr_dir_content[j] << endl;
-                curr_dir_content[j] = dir_entry_index;
+                temp_curr_dir_content[j] = dir_entry_index;
+                if(dir_path_temp.size() == dir_path.size())
+                {
+                  curr_dir_content[i] = dir_entry_index;
+                }
+
                 break;
               }
             }
-            cout << "3\n";
-            disk.write(parent_first_blk, (uint8_t*)curr_dir_content);
+            disk.write(parent_first_blk, (uint8_t*)temp_curr_dir_content);
           }
-          cout << "4\n";
           disk.write(ROOT_BLOCK, (uint8_t*)dir_entries);
           disk.write(start_block,  (uint8_t*)temp_dir_content);
-          // for (int q = 0; q < ROOT_SIZE; q++)
-          // {
-          //   cout << "temp dir content: " << temp_dir_content
-          // }
 
-          // cout << "path size: " << dir_path.size() << "\n";
-
-          if (dir_path.size() == 1)
+          if (dir_path_temp_temp.size() == 0)
           {
-            void *ptr_mem = calloc(ROOT_SIZE, sizeof(int));
-            int* ptr;
-            ptr = (int*)ptr_mem; // WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING ptr får inte några värden1!!!
-            ptr = init_dir_content(dir_path);
-            cout << dir_path.size() << " dir pat sise" << endl;
-            cout << dir_path.back() << " dir pat bak"<< endl;
+            std::vector<int> root_dir_content;
+            root_dir_content = init_dir_content(dir_path_temp_temp);
 
             for(int i = 0; i < ROOT_SIZE; i++)
             {
-               curr_dir_content[i] = ptr[i];
-               cout << " curr_dir_content[i] now is " << ptr[i] << endl;
+               temp_curr_dir_content[i] = root_dir_content[i];
+               if(dir_path_temp.size() == dir_path.size())
+               {
+                 curr_dir_content[i] = root_dir_content[i];
+               }
             }
-            // free
-            cout << "freeing ptr \n";
-
-            free(ptr_mem);
           }
-          cout << "5\n";
-
           break;
         }
       }
     return 0;
-
 }
 
-// cd <dirpath> changes the current (working) directory to the directory named <dirpath>
+//  <dirpath> changes the current (working) directory to the directory named <dirpath>
 int
-FS::cd(std::string new_dir)
+FS::cd(std::string new_dir) //KLAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAR
 {
-    std::cout << "FS::cd(" << new_dir << ")\n";
+  std::cout << "FS::cd(" << new_dir << ")\n";
 
+  // std::vector<int> dir_path_temp = string_to_vector_converter(new_dir);
+  // if (dir_path_temp.size() != 0)
+  // {
+  //   cout << "1\n";
+  //   for(int i = 0; i < dir_path_temp.size(); i++)
+  //   {
+  //     cout << dir_path_temp[i] << "\n";
+  //   }
+  //
+  //   int new_dir_content[BLOCK_SIZE];
+  //   disk.read(dir_entries[dir_path_temp.back()].first_blk, (uint8_t*)new_dir_content);
+  //
+  //   for (int i = 0; i < ROOT_SIZE; i++)
+  //   {
+  //     curr_dir_content[i] = new_dir_content[i];
+  //   }
+  //   dir_path = dir_path_temp;
+  //   return 0;
+  // }
+  // cout << "1\n";
 
+  if (new_dir == "/")
+  {
+    std::vector<int> root_dir_content;
+    root_dir_content = init_dir_content(dir_path);
+
+    for (int i = 0; i < ROOT_SIZE; i++)
+    {
+      curr_dir_content[i] = 0;
+    }
+
+    for (int i = 0; i < root_dir_content.size(); i++)
+    {
+      curr_dir_content[i] = root_dir_content[i];
+    }
+    return 0;
+  }
+
+  std::vector<int> dir_path_temp = string_to_vector_converter(new_dir, 0, 0);
+  if (dir_path_temp.size() >= 1)
+  {
+    if(dir_path_temp.back() == -1)
+    {
+      cout << "error cant go above root" << endl;
+      return -1;
+    }
+  }
+
+  std::vector<int> dir_path_temp_temp = dir_path;
+  int temp_curr_dir_content[BLOCK_SIZE];
+
+  for(int r = 0; r < ROOT_SIZE; r++)
+  {
+    temp_curr_dir_content[r] = curr_dir_content[r];
+  }
+    // cout << "2\n";
+
+  if (dir_path_temp.size() != dir_path.size() || dir_path_temp != dir_path)
+  {
+    dir_path_temp_temp = dir_path_temp;
+      // cout << "2.2\n";
+    disk.read(dir_entries[dir_path_temp_temp.back()].first_blk, (uint8_t*)temp_curr_dir_content);
+    new_dir = dir_entries[dir_path_temp_temp.back()].file_name;
+
+    if (dir_path_temp_temp.size() == 0)
+    {
+      cout << "dir_path_temp_temp.size: " << dir_path_temp_temp.size() << "\n";
+      std::vector<int> root_dir_content;
+      root_dir_content = init_dir_content(dir_path_temp_temp);
+
+      for(int i = 0; i < ROOT_SIZE; i++)
+      {
+          curr_dir_content[i] = root_dir_content[i];
+      }
+      dir_path = dir_path_temp_temp;
+      return 0;
+    }
+    // cout << "dir_path_temp_temp.size(): " << dir_path_temp_temp.size() << "\n";
+  }
+
+  for (int i = 0; i < dir_path_temp_temp.size(); i++)
+  {
+    // cout << "dir_path_temp_temp: " << dir_path_temp_temp[i] << "\n";
+    // cout << "dir_path: " << dir_path[i] << "\n";
+  }
+
+  for(int r = 0; r < ROOT_SIZE; r++)
+  {
+    // cout << "temp_curr_dir_content[r]: " << temp_curr_dir_content[r] << "\n";
+  }
+
+    // cout << "3\n";
+  // cout << dir_path_temp.size() << "\n";
   if (new_dir == "..")
   {
-// if new directory is ".." then we go up one level.
-    if(dir_path.size() == 1)
+    // cout << "4\n";
+  // if new directory is ".." then we go up one level.
+    if(dir_path_temp_temp.size() == 0)
     {
-      cout << "Can't go futher up, you're at root. \n";
+      // cout << "Can't go futher up, you're at root. \n";
       return -1;
     }
 
-    dir_path.resize(dir_path.size() - 1);
-    // Set new folder dir content
-    void *ptr_mem = calloc(ROOT_SIZE, sizeof(int));
-    int* ptr = (int*)ptr_mem;
-    ptr = (init_dir_content(dir_path));
-
-    for(int i = 0; i < ROOT_SIZE; i++)
+    if (dir_path_temp_temp.size() - 1 == 0)
     {
-      curr_dir_content[i] = ptr[i];
+      std::vector<int> root_dir_content;
+      dir_path_temp_temp.resize(dir_path_temp_temp.size() - 1);
+      root_dir_content = init_dir_content(dir_path_temp_temp);
+        // cout << "5\n";
+      for(int i = 0; i < ROOT_SIZE; i++)
+      {
+        temp_curr_dir_content[i] = root_dir_content[i];
+          // cout << "6\n";
+        if(dir_path_temp.size() == dir_path.size())
+        {
+          curr_dir_content[i] = root_dir_content[i];
+            // cout << "7\n";
+        }
+      }
+
+      for(int i = 0; i < dir_path_temp_temp.size(); i++)
+      {
+        cout << dir_path_temp_temp[i] << "\n";
+          // cout << "8\n";
+      }
+
+      dir_path = dir_path_temp_temp;
+      return 0;
     }
 
-    // get new dir content
-    cout << "freeing ptr 2 \n";
-    free(ptr_mem);
+    dir_path_temp_temp.resize(dir_path_temp_temp.size() - 1);
+    // Set new folder dir content
+
+    int new_dir_content[BLOCK_SIZE];
+    for (int i = 0; i < ROOT_SIZE; i++)
+    {
+      new_dir_content[i] = -1;
+      temp_curr_dir_content[i] = -1;
+      if(dir_path_temp.size() == dir_path.size())
+      {
+        curr_dir_content[i] = -1;
+      }
+    }
+
+    disk.read(dir_entries[dir_path_temp_temp.back()].first_blk, (uint8_t*)new_dir_content);
+
+    for (int i = 0; i < ROOT_SIZE; i++)
+    {
+      temp_curr_dir_content[i] = new_dir_content[i];
+      if(dir_path_temp.size() == dir_path.size())
+      {
+        curr_dir_content[i] = new_dir_content[i];
+      }
+    }
+
+    dir_path = dir_path_temp_temp;
     return 0;
   }
+
   else
   {
-    cout << "entered else" << endl;
-    dir_path.push_back(new_dir);
 
-    // Set new folder dir content
-    cout << "gonna calloc B)" << endl;
-    void *ptr_mem = calloc(ROOT_SIZE, sizeof(int));
-    int* ptr = (int*)ptr_mem;
-    cout << "gonna init_dir_content \n";
-    ptr = init_dir_content(dir_path) ;
-    cout << "Gonna loop dir content \n";
-    for(int i = 0; i < ROOT_SIZE; i++)
+    if (dir_path_temp.size() != dir_path.size() || dir_path_temp != dir_path)
     {
-      cout << " curr_dir_content[" << i << "] = " << curr_dir_content[i] << "\n";
-      cout << "ptr[" << i << "] = " << ptr[i] << "\n";
-      curr_dir_content[i] = ptr[i];
+      // cout << "3.1\n";
+      if (accessrights_check(dir_path_temp_temp.back(), READ) == -1)
+      {
+        cout << "You do not have the rights to read this directory! \n";
+        return 0;
+      }
+
+
+      for(int i = 0; i < ROOT_SIZE; i++)
+      {
+        curr_dir_content[i] = temp_curr_dir_content[i];
+      }
+      for (int i = 0; i < dir_path_temp_temp.size(); i++)
+      {
+        // cout << "dir_path_temp_temp: " << dir_path_temp_temp[i] << "\n";
+        // cout << "dir_path: " << dir_path[i] << "\n";
+      }
+      dir_path = dir_path_temp_temp;
+      return 0;
     }
-    free(ptr_mem);
-    return 0;
+
+    // cout << "3\n";
+    for (int i = 0; i < ROOT_SIZE; i++)
+    {
+      cout << dir_entries[temp_curr_dir_content[i]].file_name <<" = " << new_dir <<"\n";
+      if ((dir_entries[temp_curr_dir_content[i]].file_name == new_dir) && (dir_entries[temp_curr_dir_content[i]].type == TYPE_DIR))
+      {
+        // cout << "3.1\n";
+        if (accessrights_check(temp_curr_dir_content[i], READ) == -1)
+        {
+          cout << "You do not have the rights to read this directory! \n";
+          return 0;
+        }
+        // cout << "4\n";
+        dir_path_temp_temp.resize(dir_path_temp_temp.size() + 1);
+        dir_path_temp_temp[dir_path_temp_temp.size() -1 ] = temp_curr_dir_content[i];
+
+        int new_dir_content[BLOCK_SIZE];
+        for (int i = 0; i < ROOT_SIZE; i++)
+        {
+          new_dir_content[i] = -1;
+          temp_curr_dir_content[i] = -1;
+          if(dir_path_temp.size() == dir_path.size())
+          {
+            curr_dir_content[i] = -1;
+          }
+        }
+        // cout << "5\n";
+        disk.read(dir_entries[dir_path_temp_temp.back()].first_blk, (uint8_t*)new_dir_content);
+
+        for(int i = 0; i < ROOT_SIZE; i++)
+        {
+          temp_curr_dir_content[i] = new_dir_content[i];
+          if(dir_path_temp.size() == dir_path.size())
+          {
+            curr_dir_content[i] = new_dir_content[i];
+          }
+        }
+        // cout << "6\n";
+        dir_path = dir_path_temp_temp;
+        return 0;
+      }
+    }
   }
     cout << "directory not found" << endl;
     return 0;
@@ -1773,22 +2948,26 @@ FS::cd(std::string new_dir)
 // pwd prints the full path, i.e., from the root directory, to the current
 // directory, including the currect directory name
 int
-FS::pwd()
+FS::pwd() //KLAAAAAAAAAAAAAAAAAAAAAAR
 {
     std::cout << "FS::pwd()\n";
     string output_str = "";
     string temp;
-    if(dir_path.size() > 1 ) {
-      for(int i = 1; i < dir_path.size(); i++) {
-        temp += dir_path[i];
+
+    if(dir_path.size() > 0 )
+    {
+
+      for(int i = 0; i < dir_path.size(); i++)
+      {
+        temp = dir_entries[dir_path[i]].file_name;
         output_str.append("/" + temp);
       }
-
-    } else {
-      output_str.append("/");
     }
 
-
+    else
+    {
+      output_str.append("/");
+    }
     cout << output_str << std::endl;
     return 0;
 }
@@ -1796,43 +2975,86 @@ FS::pwd()
 // chmod <accessrights> <filepath> changes the access rights for the
 // file <filepath> to <accessrights>.
 int
-FS::chmod(std::string accessrights, std::string filepath)
+FS::chmod(std::string accessrights, std::string filepath) // Inte klar
 {
     std::cout << "FS::chmod(" << accessrights << "," << filepath << ")\n";
+    //
+    // for(int i = 0; i < ROOT_SIZE; i++)
+    // {
+    //   cout << "fat: "<< fat[i] << endl;
+    // }
+    //
+    // for(int i = 0; i < ROOT_SIZE; i++)
+    // {
+    // cout << "dir_name: " << dir_entries[i].file_name << endl;
+    // }
 
-    //DEBUGGING
-    for (int i = 0; i < 64 ; i++){
-      cout << "fat[" << i << "] = " << fat[i] << "\n";
+    std::vector<int> dir_path_temp = string_to_vector_converter(filepath);
+    std::vector<int> dir_path_temp_temp = dir_path;
+    int temp_curr_dir_content[BLOCK_SIZE];
+
+    for(int r = 0; r < ROOT_SIZE; r++)
+    {
+      temp_curr_dir_content[r] = curr_dir_content[r];
     }
 
-    for (int i = 0; i < 64 ; i++){
-      if(dir_entries[i].first_blk < 0 || dir_entries[i].first_blk > ROOT_SIZE){
-        continue;
+
+    //relative path
+    if (dir_path_temp.size() != dir_path.size() || dir_path_temp != dir_path)
+    {
+      dir_path_temp_temp = dir_path_temp;
+      cout << dir_path_temp_temp.back() << "\n";
+
+      if (dir_path_temp.size() != 0)
+      {
+      disk.read(dir_entries[dir_path_temp_temp.back()].first_blk, (uint8_t*)temp_curr_dir_content);
       }
-      cout << "dir_entry[" << i << "] = " << dir_entries[i].file_name << "   Size == "<< dir_entries[i].size << "\n";
+
+      if (dir_path_temp.size() == 0)
+      {
+        std::vector<int> root_content;
+        root_content = init_dir_content(root_content);
+        int dir_content[ROOT_SIZE];
+
+        for (int l = 0; l < ROOT_SIZE; l++)
+        {
+          temp_curr_dir_content[l] = 0;
+        }
+
+        for (int p = 0; p < root_content.size(); p++)
+        {
+          temp_curr_dir_content[p] = root_content[p];
+        }
+      }
+
+      //Ful lösning för att hitta namnet
+      std::vector<int> dir_path_name_find = dir_path;
+      std::vector<int> path;
+      std::vector<string> path_str;
+      string dir;
+      char delimiter = '/';
+      int temp_dir_content[BLOCK_SIZE];
+      int filepath_size = filepath.length();
+      char filepath_char[filepath_size];
+      strcpy(filepath_char, filepath.c_str());
+
+      membuf sbuf(filepath_char, filepath_char + sizeof(filepath_char));
+      istream in(&sbuf);
+
+      while (getline(in, dir, delimiter))
+      {
+        path_str.push_back(dir);
+      }
+      filepath = path_str.back();
     }
 
-    cout << "current directory: \n";
-    for (int i = 0; i < dir_path.size(); i++)
-    {
-      cout << "file " << i << ": " << dir_path[i] << "\n";
-    }
-
-    cout << "\n";
-
-    for (int i = 0; i < ROOT_SIZE; i++)
-    {
-      cout << "file " << i << ": " << curr_dir_content[i] << "\n";
-    }
-
-    //ACTUAL CODE
     //find file
     int file_index = -1;
     for (int i = 0; i < 64; i++)
     {
-      if (dir_entries[curr_dir_content[i]].file_name == filepath)
+      if (dir_entries[temp_curr_dir_content[i]].file_name == filepath)
       {
-        file_index = curr_dir_content[i];
+        file_index = temp_curr_dir_content[i];
         break;
       }
     }
@@ -1884,17 +3106,11 @@ FS::chmod(std::string accessrights, std::string filepath)
       accessrights_int = EXECUTE;
     }
 
-    else if (accessrights == "r-x")
-    {
-      accessrights_int = READ + EXECUTE;
-    }
-
     else
     {
       cout << "Wrong format on input\n";
       return 0;
     }
-
 
     //Change file accessrights
     dir_entries[file_index].access_rights = accessrights_int;
